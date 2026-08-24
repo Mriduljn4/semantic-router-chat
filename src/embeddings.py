@@ -13,6 +13,7 @@ EMBEDDING_DIMENSION = 384
 
 @lru_cache
 def _model():
+    """Load and cache the local sentence-transformer only when that backend is selected."""
     from sentence_transformers import SentenceTransformer
 
     return SentenceTransformer(get_settings().EMBEDDING_MODEL_NAME)
@@ -30,10 +31,12 @@ def _hash_embedding(text: str) -> list[float]:
 
 @lru_cache
 def _gemini_client() -> genai.Client:
+    """Create one cached Gemini API client for API-hosted embeddings."""
     return genai.Client(api_key=get_settings().GEMINI_API_KEY)
 
 
 def _gemini_embeddings(texts: list[str], task_type: str) -> list[list[float]]:
+    """Request task-aware Gemini vectors at a storage-efficient dimension."""
     response = _gemini_client().models.embed_content(
         model=get_settings().GEMINI_EMBEDDING_MODEL,
         contents=texts,
@@ -43,6 +46,7 @@ def _gemini_embeddings(texts: list[str], task_type: str) -> list[list[float]]:
 
 
 def embed_query(text: str) -> list[float]:
+    """Embed a user request using query semantics appropriate for retrieval."""
     backend = get_settings().EMBEDDING_BACKEND
     if backend == "hashing":
         return _hash_embedding(text)
@@ -52,6 +56,7 @@ def embed_query(text: str) -> list[float]:
 
 
 def embed_documents(texts: list[str]) -> list[list[float]]:
+    """Embed stored profiles and RAG documents with document retrieval semantics."""
     backend = get_settings().EMBEDDING_BACKEND
     if backend == "hashing":
         return [_hash_embedding(text) for text in texts]

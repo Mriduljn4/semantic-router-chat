@@ -9,12 +9,16 @@ from langchain_core.messages import BaseMessage
 from src.chroma_store import get_research_docs_collection
 from src.config import get_settings
 from src.embeddings import embed_query
+from src.guardrails import sanitize_output
 from src.llm import LLMProviderError, get_model
+from src.web_search import web_search
 
 logger = logging.getLogger(__name__)
 
 PROMPTS = {
-    "research": "You are a research expert. Use only the supplied context for factual claims and state when it is insufficient.",
+    "research": """You are a research expert. Use supplied local context for factual claims and state when it is insufficient.
+For timely or missing information, use the web_search tool. Cite local context as [1], [2], etc. and cite web URLs in Markdown links.
+Do not claim sources support facts they do not contain. Use Markdown for headings, lists, and code when helpful.""",
     "coding": "You are a coding expert. Give practical, correct programming guidance and concise examples when useful.",
     "data": "You are a data expert. Help with SQL, analysis, transformations, metrics, and visualization reasoning.",
 }
@@ -22,9 +26,12 @@ PROMPTS = {
 
 @dataclass
 class AgentResult:
+    """Normalized output returned by a specialist agent invocation."""
+
     answer: str
     provider_used: Literal["groq", "gemini"]
     context: list[str]
+    tools_used: list[str]
 
 
 @lru_cache
@@ -32,13 +39,15 @@ def get_agent(agent_name: str, provider: Literal["groq", "gemini"]):
     """Build a LangChain v1 specialist agent for the chosen provider."""
     return create_agent(
         model=get_model(provider),
-        tools=[],
+        # Only Research can access the internet; Coding and Data remain tool-free.
+        tools=[web_search] if agent_name == "research" else [],
         system_prompt=PROMPTS[agent_name],
         name=f"{agent_name}_{provider}",
     )
 
 
 def _message_text(message: BaseMessage) -> str:
+    """Extract displayable text from plain and Gemini-style structured messages."""
     content = message.content
     if isinstance(content, str):
         return content
@@ -53,12 +62,21 @@ def _message_text(message: BaseMessage) -> str:
     return str(content)
 
 
-def _invoke_agent(agent, prompt: str) -> str:
+def _invoke_agent(agent, prompt: str) -> tuple[str, list[str]]:
+    """Invoke a LangChain agent and return final text plus any tools it called."""
     result = agent.invoke({"messages": [{"role": "user", "content": prompt}]})
-    return _message_text(result["messages"][-1])
+    tools_used = list(
+        dict.fromkeys(
+            message.name
+            for message in result["messages"]
+            if getattr(message, "type", "") == "tool" and getattr(message, "name", None)
+        )
+    )
+    return _message_text(result["messages"][-1]), tools_used
 
 
 def _provider_error_reason(error: Exception) -> str:
+    """Map provider exceptions to safe, actionable categories for API clients."""
     message = str(error).lower()
     if "model" in message and ("not found" in message or "not available" in message):
         return "model_unavailable"
@@ -75,9 +93,15 @@ def _safe_provider_failure(error: Exception) -> str:
 
 
 def run_agent(agent_name: str, query: str) -> AgentResult:
+    """Run a specialist, adding RAG context for research and provider fallback.
+
+    Research first retrieves local documents with the same embedding backend used
+    for ingestion. Coding and data specialists receive the query directly.
+    """
     context: list[str] = []
     prompt = query
     if agent_name == "research":
+        # RAG is restricted to the research specialist to avoid irrelevant context.
         result = get_research_docs_collection().query(
             query_embeddings=[embed_query(query)],
             n_results=get_settings().ROUTER_TOP_K,
@@ -85,21 +109,25 @@ def run_agent(agent_name: str, query: str) -> AgentResult:
         )
         documents = result.get("documents", [])
         context = documents[0] if documents else []
-        context_text = "\n".join(context)
-        prompt = f"Context:\n{context_text}\n\nQuestion: {query}"
+        # Numbered excerpts enable inline citations in the research response.
+        context_text = "\n\n".join(
+            f"[{index}] {document}" for index, document in enumerate(context, start=1)
+        )
+        prompt = f"Sources:\n{context_text}\n\nQuestion: {query}"
 
     primary = get_settings().LLM_PRIMARY_PROVIDER
     providers: tuple[Literal["groq", "gemini"], Literal["groq", "gemini"]]
     providers = ("gemini", "groq") if primary == "gemini" else ("groq", "gemini")
 
     try:
-        answer = _invoke_agent(get_agent(agent_name, providers[0]), prompt)
-        return AgentResult(answer, providers[0], context)
+        answer, tools_used = _invoke_agent(get_agent(agent_name, providers[0]), prompt)
+        return AgentResult(sanitize_output(answer), providers[0], context, tools_used)
     except Exception as primary_error:
+        # Only the alternate provider is tried; no unbounded retry loop is used.
         logger.warning("Primary %s agent failed; trying %s fallback.", providers[0], providers[1], exc_info=True)
         try:
-            answer = _invoke_agent(get_agent(agent_name, providers[1]), prompt)
-            return AgentResult(answer, providers[1], context)
+            answer, tools_used = _invoke_agent(get_agent(agent_name, providers[1]), prompt)
+            return AgentResult(sanitize_output(answer), providers[1], context, tools_used)
         except Exception as error:
             logger.error("Fallback %s agent failed.", providers[1], exc_info=True)
             attempts = {

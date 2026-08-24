@@ -42,6 +42,21 @@ function updateMessage(article, text, metadata = "") {
   scrollToLatest();
 }
 
+function appendSources(article, sources) {
+  if (!sources?.length) return;
+  const sourceList = document.createElement("details");
+  sourceList.className = "source-list";
+  sourceList.innerHTML = `<summary>Sources (${sources.length})</summary>`;
+  const list = document.createElement("ol");
+  sources.forEach((source) => {
+    const item = document.createElement("li");
+    item.textContent = source;
+    list.append(item);
+  });
+  sourceList.append(list);
+  article.querySelector(".message-content").append(sourceList);
+}
+
 function renderMessage(element, text, role) {
   if (role !== "assistant" || !window.marked || !window.DOMPurify) {
     element.textContent = text;
@@ -90,8 +105,9 @@ async function submitQuery(value) {
         if (eventName === "status") updateMessage(pending, payload.message);
         if (eventName === "answer_start") {
           const scores = Object.entries(payload.router_scores).map(([agent, score]) => `${agent} ${Math.round(score * 100)}%`).join(" · ");
-          const rewrite = payload.rewritten_query !== text ? ` · refined query: ${payload.rewritten_query}` : "";
-          updateMessage(pending, "", `${payload.routed_agent} · ${payload.llm_provider_used} · ${scores}${rewrite}`);
+          const toolStatus = payload.tools_used?.length ? ` · tools: ${payload.tools_used.join(", ")}` : "";
+          updateMessage(pending, "", `${payload.routed_agent} · ${payload.llm_provider_used} · ${scores}${toolStatus}`);
+          appendSources(pending, payload.sources);
           pending.classList.add("answer-streaming");
         }
         if (eventName === "answer_chunk") {

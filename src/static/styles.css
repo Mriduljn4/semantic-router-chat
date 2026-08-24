@@ -28,4 +28,5 @@ body { font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif; }
 .brand, h1, h2, .assistant-message .message-content :is(h1, h2, h3) { font-family: "Space Grotesk", ui-sans-serif, sans-serif; }
 .eyebrow, .agent-meta, .assistant-message .message-content pre code, .assistant-message .message-content :not(pre) > code { font-family: "DM Mono", ui-monospace, monospace; }
 .answer-streaming .message-content::after { content: "▋"; margin-left: 3px; color: #5870c9; animation: cursor-blink 900ms steps(1) infinite; }
+.source-list { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); color: #5e6678; font-size: 12px; }.source-list summary { cursor: pointer; color: #405582; font-family: "DM Mono", ui-monospace, monospace; font-weight: 500; }.source-list ol { margin: 10px 0 0; padding-left: 20px; }.source-list li + li { margin-top: 7px; }
 @keyframes cursor-blink { 50% { opacity: 0; } }

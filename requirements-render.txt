@@ -1,6 +1,7 @@
 # Lean runtime dependencies for Render's 512 MB free instance.
 # Development evaluation and sentence-transformer packages are deliberately excluded.
 chromadb>=0.5
+ddgs>=9.0
 fastapi>=0.115
 google-genai>=1.0
 groq>=0.11

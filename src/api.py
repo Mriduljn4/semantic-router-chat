@@ -10,7 +10,8 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
-from src.graph import run_query
+from src.guardrails import GuardrailViolation, validate_input
+from src.graph import run_query_async
 from src.llm import LLMProviderError
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ class QueryRequest(BaseModel):
         query = value.strip()
         if not query:
             raise ValueError("Query cannot be blank.")
-        return query
+        return validate_input(query)
 
 
 class QueryResponse(BaseModel):
@@ -37,23 +38,24 @@ class QueryResponse(BaseModel):
     routed_agent: Literal["research", "coding", "data"]
     router_scores: dict[str, float]
     llm_provider_used: Literal["groq", "gemini"]
-    rewritten_query: str
+    sources: list[str]
+    tools_used: list[str]
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
+async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
 @app.get("/", include_in_schema=False)
-def chat_ui() -> FileResponse:
+async def chat_ui() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.post("/query", response_model=QueryResponse)
-def query(request: QueryRequest) -> QueryResponse:
+async def query(request: QueryRequest) -> QueryResponse:
     try:
-        return QueryResponse.model_validate(run_query(request.query))
+        return QueryResponse.model_validate(await run_query_async(request.query))
     except LLMProviderError as error:
         logger.exception("All LLM providers failed to generate a response.")
         raise HTTPException(
@@ -64,20 +66,22 @@ def query(request: QueryRequest) -> QueryResponse:
                 "attempts": error.attempts,
             },
         ) from error
+    except GuardrailViolation as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     except (RuntimeError, ValueError) as error:
         logger.exception("Query processing failed.")
         raise HTTPException(status_code=503, detail="Query processing is temporarily unavailable.") from error
 
 
 @app.post("/query/stream")
-def query_stream(request: QueryRequest) -> StreamingResponse:
+async def query_stream(request: QueryRequest) -> StreamingResponse:
     def event(event_name: str, payload: dict) -> str:
         return f"event: {event_name}\ndata: {json.dumps(payload)}\n\n"
 
-    def generate():
+    async def generate():
         yield event("status", {"message": "Understanding your intent…"})
         try:
-            result = QueryResponse.model_validate(run_query(request.query))
+            result = QueryResponse.model_validate(await run_query_async(request.query))
             yield event("status", {"message": f"{result.routed_agent.title()} specialist is preparing an answer…"})
             yield event("answer_start", result.model_dump(exclude={"answer"}))
             for chunk in re.findall(r"\S+\s*", result.answer):
@@ -93,6 +97,8 @@ def query_stream(request: QueryRequest) -> StreamingResponse:
                     "attempts": error.attempts,
                 },
             )
+        except GuardrailViolation as error:
+            yield event("error", {"message": str(error), "reason": "input_guardrail"})
         except (RuntimeError, ValueError):
             logger.exception("Query processing failed.")
             yield event("error", {"message": "Query processing is temporarily unavailable."})
