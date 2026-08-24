@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: semantic-router-chat
+    runtime: python
+    plan: free
+    buildCommand: pip install -e .
+    startCommand: python -m scripts.start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: LANGCHAIN_TRACING_V2
+        value: "false"

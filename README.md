@@ -63,6 +63,18 @@ The router, fallback, and API tests make no LLM API calls. The DeepEval RAG qual
 
 ChromaDB persists its local data in `chroma_data/` using SQLite. This setup is appropriate for local development and read-heavy single-process use. Use a hosted/vector-database deployment before scaling to concurrent production writers.
 
+## Deploy free on Render
+
+This repository includes [render.yaml](render.yaml), which creates a free Render web service and runs the seed step on every service startup. This is necessary because the free tier uses ephemeral disk storage.
+
+1. Sign in at [Render](https://render.com/) using GitHub.
+2. Select **New +** → **Blueprint**, then select the `Mriduljn4/semantic-router-chat` repository.
+3. Review the `semantic-router-chat` service and click **Apply**.
+4. In the service **Environment** settings, add `GROQ_API_KEY`. Optionally add `GEMINI_API_KEY` for fallback.
+5. Redeploy the service after saving the environment variables.
+
+Render will provide the public URL after deployment. Free services sleep when idle and may take a short time to wake up for the next request.
+
 ## Next steps
 
 A next iteration could add a confidence threshold that sends uncertain requests to a general fallback, expand the small labeled routing set into a measured evaluation dataset, and deploy the same FastAPI service to a free host such as Render. These ideas are intentionally not implemented in this lean version.
