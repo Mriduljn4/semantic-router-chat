@@ -61,5 +61,7 @@ def test_query_stream_returns_status_and_answer_events():
         response = TestClient(app).post("/query/stream", json={"query": "What is RAG?"})
     assert response.status_code == 200
     assert "event: status" in response.text
-    assert "event: answer" in response.text
+    assert "event: answer_start" in response.text
+    assert "event: answer_chunk" in response.text
+    assert "event: answer_complete" in response.text
     assert '"routed_agent": "research"' in response.text

@@ -16,7 +16,7 @@ function appendMessage(text, role, metadata = "") {
   const content = document.createElement("div");
   content.className = "message-content";
   const paragraph = document.createElement("p");
-  paragraph.textContent = text;
+  renderMessage(paragraph, text, role);
   content.append(paragraph);
   if (metadata) {
     const meta = document.createElement("span");
@@ -31,7 +31,7 @@ function appendMessage(text, role, metadata = "") {
 }
 
 function updateMessage(article, text, metadata = "") {
-  article.querySelector("p").textContent = text;
+  renderMessage(article.querySelector("p"), text, article.classList.contains("assistant-message") ? "assistant" : "user");
   if (metadata) {
     const meta = document.createElement("span");
     meta.className = "agent-meta";
@@ -40,6 +40,15 @@ function updateMessage(article, text, metadata = "") {
   }
   article.classList.remove("streaming-message");
   scrollToLatest();
+}
+
+function renderMessage(element, text, role) {
+  if (role !== "assistant" || !window.marked || !window.DOMPurify) {
+    element.textContent = text;
+    return;
+  }
+  element.innerHTML = window.DOMPurify.sanitize(window.marked.parse(text, { breaks: true }));
+  element.querySelectorAll("pre code").forEach((block) => window.hljs?.highlightElement(block));
 }
 
 function setLoading(isLoading) {
@@ -67,6 +76,7 @@ async function submitQuery(value) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    let streamedAnswer = "";
     while (true) {
       const { value: chunk, done } = await reader.read();
       buffer += decoder.decode(chunk || new Uint8Array(), { stream: !done });
@@ -78,10 +88,19 @@ async function submitQuery(value) {
         if (!eventName || !rawData) continue;
         const payload = JSON.parse(rawData);
         if (eventName === "status") updateMessage(pending, payload.message);
-        if (eventName === "answer") {
+        if (eventName === "answer_start") {
           const scores = Object.entries(payload.router_scores).map(([agent, score]) => `${agent} ${Math.round(score * 100)}%`).join(" · ");
           const rewrite = payload.rewritten_query !== text ? ` · refined query: ${payload.rewritten_query}` : "";
-          updateMessage(pending, payload.answer, `${payload.routed_agent} · ${payload.llm_provider_used} · ${scores}${rewrite}`);
+          updateMessage(pending, "", `${payload.routed_agent} · ${payload.llm_provider_used} · ${scores}${rewrite}`);
+          pending.classList.add("answer-streaming");
+        }
+        if (eventName === "answer_chunk") {
+          streamedAnswer += payload.text;
+          renderMessage(pending.querySelector("p"), streamedAnswer, "assistant");
+          scrollToLatest();
+        }
+        if (eventName === "answer_complete") {
+          pending.classList.remove("answer-streaming");
         }
         if (eventName === "error") {
           const attempts = Object.entries(payload.attempts || {}).map(([provider, reason]) => `${provider}: ${reason}`).join("; ");

@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 from typing import Literal
 import json
+import re
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -78,7 +79,10 @@ def query_stream(request: QueryRequest) -> StreamingResponse:
         try:
             result = QueryResponse.model_validate(run_query(request.query))
             yield event("status", {"message": f"{result.routed_agent.title()} specialist is preparing an answer…"})
-            yield event("answer", result.model_dump())
+            yield event("answer_start", result.model_dump(exclude={"answer"}))
+            for chunk in re.findall(r"\S+\s*", result.answer):
+                yield event("answer_chunk", {"text": chunk})
+            yield event("answer_complete", {})
         except LLMProviderError as error:
             logger.exception("All LLM providers failed to generate a response.")
             yield event(
