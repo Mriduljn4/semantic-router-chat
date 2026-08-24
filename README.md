@@ -65,7 +65,7 @@ ChromaDB persists its local data in `chroma_data/` using SQLite. This setup is a
 
 ## Deploy free on Render
 
-This repository includes [render.yaml](render.yaml), which creates a free Render web service and runs the seed step on every service startup. This is necessary because the free tier uses ephemeral disk storage.
+This repository includes [render.yaml](render.yaml), which creates a free Render web service and seeds the Chroma data during every deployment build. This keeps the application startup fast enough for Render's health check while rebuilding the data whenever a new version is deployed.
 
 1. Sign in at [Render](https://render.com/) using GitHub.
 2. Select **New +** → **Blueprint**, then select the `Mriduljn4/semantic-router-chat` repository.
