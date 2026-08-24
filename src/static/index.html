@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>Semantic Router</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="sidebar" aria-label="Application information">
+      <a class="brand" href="/" aria-label="Semantic Router home">
+        <span class="brand-mark">✦</span>
+        <span>Semantic<br>Router</span>
+      </a>
+      <div class="sidebar-copy">
+        <p class="eyebrow">LANGCHAIN + LANGGRAPH</p>
+        <h1>Ask. Route. Answer.</h1>
+        <p>Every prompt is matched to the right specialist before an answer is generated.</p>
+      </div>
+      <div class="agent-list" aria-label="Available specialists">
+        <span><i class="dot research"></i>Research</span>
+        <span><i class="dot coding"></i>Coding</span>
+        <span><i class="dot data"></i>Data</span>
+      </div>
+      <p class="status"><span></span> System ready</p>
+    </section>
+
+    <section class="chat-panel">
+      <header class="chat-header">
+        <div>
+          <p class="eyebrow">MULTI-AGENT ASSISTANT</p>
+          <h2>How can I help?</h2>
+        </div>
+        <button class="clear-button" id="clear-chat" type="button">Clear chat</button>
+      </header>
+
+      <div class="conversation" id="conversation" aria-live="polite">
+        <article class="message assistant-message">
+          <div class="avatar">✦</div>
+          <div class="message-content">
+            <p>Hi! I route questions to Research, Coding, or Data specialists. What would you like to explore?</p>
+            <div class="suggestions">
+              <button type="button" data-query="What is retrieval-augmented generation?">Explain RAG</button>
+              <button type="button" data-query="Help me design a REST API">Design an API</button>
+              <button type="button" data-query="How do I calculate conversion rate?">Analyze a metric</button>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <form class="composer" id="chat-form">
+        <label class="sr-only" for="query">Ask a question</label>
+        <textarea id="query" name="query" rows="1" placeholder="Ask anything..." maxlength="4000" required></textarea>
+        <button class="send-button" type="submit" aria-label="Send message">
+          <span>Send</span><b>↗</b>
+        </button>
+      </form>
+      <p class="composer-note">Enter to send · Shift + Enter for a new line</p>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

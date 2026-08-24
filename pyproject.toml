@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agents-ai-semantic-router"
+version = "0.1.0"
+description = "Lean semantic multi-agent router with local embeddings"
+requires-python = ">=3.11"
+dependencies = [
+  "chromadb>=0.5",
+  "deepeval>=1.0",
+  "fastapi>=0.115",
+  "google-genai>=1.0",
+  "groq>=0.11",
+  "langchain>=1.0,<2.0",
+  "langchain-google-genai>=4.0,<5.0",
+  "langchain-groq>=1.0,<2.0",
+  "langgraph>=1.0,<2.0",
+  "pydantic-settings>=2.6",
+  "sentence-transformers>=3.0",
+  "uvicorn[standard]>=0.30",
+]
+
+[project.optional-dependencies]
+dev = ["httpx>=0.27", "pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+  "integration: requires external LLM credentials and network access",
+]
