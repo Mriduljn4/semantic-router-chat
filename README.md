@@ -6,6 +6,8 @@ A lean FastAPI multi-agent service that routes questions to Research, Coding, or
 
 `POST /query` invokes a two-node LangGraph: `route` embeds the query and selects the highest mean capability similarity; `run_agent` executes the selected LangChain v1 specialist agent. Research prompts include retrieved context, and the LangChain agent uses Groq with a Gemini fallback. LangGraph automatically traces runs when LangSmith environment variables are configured.
 
+The chat UI uses `POST /query/stream` (server-sent events) to show routing and specialist-status updates before the final answer. Before routing, a LangChain model rewrites ambiguous or shorthand requests while preserving the original intent; if rewriting fails, the original query continues unchanged. The router compares that normalized query embedding with ChromaDB capability-profile embeddings for Research, Coding, and Data. Each agent score is the mean cosine similarity among that agent's nearest matching profiles; the highest score determines the selected intent.
+
 ## Setup
 
 1. Create and activate a Python 3.11+ virtual environment.

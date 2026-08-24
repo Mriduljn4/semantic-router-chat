@@ -1,9 +1,11 @@
 import logging
 from pathlib import Path
 from typing import Literal
+import json
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
@@ -34,6 +36,7 @@ class QueryResponse(BaseModel):
     routed_agent: Literal["research", "coding", "data"]
     router_scores: dict[str, float]
     llm_provider_used: Literal["groq", "gemini"]
+    rewritten_query: str
 
 
 @app.get("/health")
@@ -63,3 +66,31 @@ def query(request: QueryRequest) -> QueryResponse:
     except (RuntimeError, ValueError) as error:
         logger.exception("Query processing failed.")
         raise HTTPException(status_code=503, detail="Query processing is temporarily unavailable.") from error
+
+
+@app.post("/query/stream")
+def query_stream(request: QueryRequest) -> StreamingResponse:
+    def event(event_name: str, payload: dict) -> str:
+        return f"event: {event_name}\ndata: {json.dumps(payload)}\n\n"
+
+    def generate():
+        yield event("status", {"message": "Understanding your intent…"})
+        try:
+            result = QueryResponse.model_validate(run_query(request.query))
+            yield event("status", {"message": f"{result.routed_agent.title()} specialist is preparing an answer…"})
+            yield event("answer", result.model_dump())
+        except LLMProviderError as error:
+            logger.exception("All LLM providers failed to generate a response.")
+            yield event(
+                "error",
+                {
+                    "message": "Language model service is unavailable.",
+                    "reason": error.reason,
+                    "attempts": error.attempts,
+                },
+            )
+        except (RuntimeError, ValueError):
+            logger.exception("Query processing failed.")
+            yield event("error", {"message": "Query processing is temporarily unavailable."})
+
+    return StreamingResponse(generate(), media_type="text/event-stream")

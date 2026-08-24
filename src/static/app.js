@@ -30,6 +30,18 @@ function appendMessage(text, role, metadata = "") {
   return article;
 }
 
+function updateMessage(article, text, metadata = "") {
+  article.querySelector("p").textContent = text;
+  if (metadata) {
+    const meta = document.createElement("span");
+    meta.className = "agent-meta";
+    meta.textContent = metadata;
+    article.querySelector(".message-content").append(meta);
+  }
+  article.classList.remove("streaming-message");
+  scrollToLatest();
+}
+
 function setLoading(isLoading) {
   const button = form.querySelector("button");
   button.disabled = isLoading;
@@ -43,23 +55,43 @@ async function submitQuery(value) {
   query.value = "";
   query.style.height = "auto";
   setLoading(true);
+  const pending = appendMessage("Understanding your intent…", "assistant");
+  pending.classList.add("streaming-message");
   try {
-    const response = await fetch("/query", {
+    const response = await fetch("/query/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: text }),
     });
-    const payload = await response.json();
-    if (!response.ok) {
-      const detail = payload.detail;
-      const message = typeof detail === "object" && detail !== null
-        ? `${detail.message || "Unable to process your request."} (${detail.reason || "unknown error"})${Object.keys(detail.attempts || {}).length ? ` — ${Object.entries(detail.attempts).map(([provider, reason]) => `${provider}: ${reason}`).join("; ")}` : ""}`
-        : detail || "Unable to process your request.";
-      throw new Error(message);
+    if (!response.ok || !response.body) throw new Error("Unable to start a response stream.");
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { value: chunk, done } = await reader.read();
+      buffer += decoder.decode(chunk || new Uint8Array(), { stream: !done });
+      const events = buffer.split("\n\n");
+      buffer = events.pop();
+      for (const rawEvent of events) {
+        const eventName = rawEvent.match(/^event: (.+)$/m)?.[1];
+        const rawData = rawEvent.match(/^data: (.+)$/m)?.[1];
+        if (!eventName || !rawData) continue;
+        const payload = JSON.parse(rawData);
+        if (eventName === "status") updateMessage(pending, payload.message);
+        if (eventName === "answer") {
+          const scores = Object.entries(payload.router_scores).map(([agent, score]) => `${agent} ${Math.round(score * 100)}%`).join(" · ");
+          const rewrite = payload.rewritten_query !== text ? ` · refined query: ${payload.rewritten_query}` : "";
+          updateMessage(pending, payload.answer, `${payload.routed_agent} · ${payload.llm_provider_used} · ${scores}${rewrite}`);
+        }
+        if (eventName === "error") {
+          const attempts = Object.entries(payload.attempts || {}).map(([provider, reason]) => `${provider}: ${reason}`).join("; ");
+          updateMessage(pending, `${payload.message} (${payload.reason || "provider error"})${attempts ? ` — ${attempts}` : ""}`, "System");
+        }
+      }
+      if (done) break;
     }
-    appendMessage(payload.answer, "assistant", `${payload.routed_agent} · ${payload.llm_provider_used}`);
   } catch (error) {
-    appendMessage(error.message || "Something went wrong. Please try again.", "assistant", "System");
+    updateMessage(pending, error.message || "Something went wrong. Please try again.", "System");
   } finally {
     setLoading(false);
     query.focus();

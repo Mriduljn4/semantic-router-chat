@@ -20,10 +20,11 @@ class Settings(BaseSettings):
     EMBEDDING_BACKEND: str = "sentence-transformers"
     CHROMA_PERSIST_DIR: str = "./chroma_data"
     ROUTER_TOP_K: int = 6
-    LANGSMITH_TRACING: str = "false"
+    QUERY_REWRITING_ENABLED: bool = True
+    LANGSMITH_TRACING: str = "true"
     LANGSMITH_API_KEY: str = ""
     LANGSMITH_PROJECT: str = "agents-ai-semantic-router"
-    LANGCHAIN_TRACING_V2: str = "false"
+    LANGCHAIN_TRACING_V2: str = "true"
     LANGCHAIN_API_KEY: str = ""
     LANGCHAIN_PROJECT: str = ""
 

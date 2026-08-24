@@ -24,6 +24,7 @@ def test_query_returns_agent_response():
         "routed_agent": "coding",
         "router_scores": {"research": 0.1, "coding": 0.9, "data": 0.2},
         "llm_provider_used": "groq",
+        "rewritten_query": "Help with Python",
     }
     with patch("src.api.run_query", return_value=expected) as run_query:
         response = TestClient(app).post("/query", json={"query": "  Help with Python  "})
@@ -46,3 +47,19 @@ def test_query_returns_service_unavailable_when_providers_fail():
         "reason": "provider_error",
         "attempts": {},
     }
+
+
+def test_query_stream_returns_status_and_answer_events():
+    expected = {
+        "answer": "RAG retrieves relevant documents.",
+        "routed_agent": "research",
+        "router_scores": {"research": 0.9, "coding": 0.1, "data": 0.0},
+        "llm_provider_used": "gemini",
+        "rewritten_query": "What is RAG?",
+    }
+    with patch("src.api.run_query", return_value=expected):
+        response = TestClient(app).post("/query/stream", json={"query": "What is RAG?"})
+    assert response.status_code == 200
+    assert "event: status" in response.text
+    assert "event: answer" in response.text
+    assert '"routed_agent": "research"' in response.text

@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.agent import run_agent
+from src.agent import _message_text, run_agent
 from src.llm import LLMProviderError
 
 
@@ -59,3 +59,12 @@ def test_provider_error_classifies_missing_model():
         with pytest.raises(LLMProviderError) as error:
             run_agent("coding", "hello")
     assert error.value.reason == "model_unavailable"
+
+
+def test_message_text_extracts_gemini_content_blocks():
+    message = type(
+        "Message",
+        (),
+        {"content": [{"type": "text", "text": "First answer"}, {"type": "text", "text": "Second answer"}]},
+    )()
+    assert _message_text(message) == "First answer\nSecond answer"

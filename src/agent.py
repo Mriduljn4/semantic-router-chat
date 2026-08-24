@@ -40,7 +40,17 @@ def get_agent(agent_name: str, provider: Literal["groq", "gemini"]):
 
 def _message_text(message: BaseMessage) -> str:
     content = message.content
-    return content if isinstance(content, str) else str(content)
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        text_blocks = [
+            block["text"]
+            for block in content
+            if isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str)
+        ]
+        if text_blocks:
+            return "\n".join(text_blocks)
+    return str(content)
 
 
 def _invoke_agent(agent, prompt: str) -> str:
