@@ -14,3 +14,5 @@ services:
         sync: false
       - key: LANGCHAIN_TRACING_V2
         value: "false"
+      - key: EMBEDDING_BACKEND
+        value: hashing

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.0-flash"
     EMBEDDING_MODEL_NAME: str = "BAAI/bge-small-en-v1.5"
+    EMBEDDING_BACKEND: str = "sentence-transformers"
     CHROMA_PERSIST_DIR: str = "./chroma_data"
     ROUTER_TOP_K: int = 6
     LANGCHAIN_TRACING_V2: str = "false"
