@@ -62,14 +62,18 @@ def run_agent(agent_name: str, query: str) -> AgentResult:
         context_text = "\n".join(context)
         prompt = f"Context:\n{context_text}\n\nQuestion: {query}"
 
+    primary = get_settings().LLM_PRIMARY_PROVIDER
+    providers: tuple[Literal["groq", "gemini"], Literal["groq", "gemini"]]
+    providers = ("gemini", "groq") if primary == "gemini" else ("groq", "gemini")
+
     try:
-        answer = _invoke_agent(get_agent(agent_name, "groq"), prompt)
-        return AgentResult(answer, "groq", context)
+        answer = _invoke_agent(get_agent(agent_name, providers[0]), prompt)
+        return AgentResult(answer, providers[0], context)
     except Exception:
-        logger.warning("Groq agent failed; trying Gemini fallback.", exc_info=True)
+        logger.warning("Primary %s agent failed; trying %s fallback.", providers[0], providers[1], exc_info=True)
         try:
-            answer = _invoke_agent(get_agent(agent_name, "gemini"), prompt)
-            return AgentResult(answer, "gemini", context)
+            answer = _invoke_agent(get_agent(agent_name, providers[1]), prompt)
+            return AgentResult(answer, providers[1], context)
         except Exception as error:
-            logger.error("Gemini fallback agent failed.", exc_info=True)
+            logger.error("Fallback %s agent failed.", providers[1], exc_info=True)
             raise LLMProviderError("Both configured LLM providers failed.") from error

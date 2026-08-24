@@ -1,4 +1,5 @@
 from unittest.mock import patch
+from types import SimpleNamespace
 
 import pytest
 
@@ -24,6 +25,17 @@ def test_gemini_is_used_when_groq_fails():
         response = run_agent("coding", "hello")
     assert response.answer == "fallback"
     assert response.provider_used == "gemini"
+
+
+def test_groq_is_used_as_fallback_when_gemini_is_primary_and_fails():
+    with patch("src.agent.get_settings", return_value=SimpleNamespace(LLM_PRIMARY_PROVIDER="gemini")), patch(
+        "src.agent.get_agent", side_effect=[object(), object()]
+    ) as get_agent, patch("src.agent._invoke_agent", side_effect=[RuntimeError("gemini failed"), "fallback"]):
+        response = run_agent("coding", "hello")
+    assert response.answer == "fallback"
+    assert response.provider_used == "groq"
+    assert get_agent.call_args_list[0].args == ("coding", "gemini")
+    assert get_agent.call_args_list[1].args == ("coding", "groq")
 
 
 def test_provider_error_is_raised_when_both_providers_fail():

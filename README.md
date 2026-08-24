@@ -65,7 +65,7 @@ ChromaDB persists its local data in `chroma_data/` using SQLite. This setup is a
 
 ## Deploy free on Render
 
-This repository includes [render.yaml](render.yaml), which creates a free Render web service and seeds the Chroma data during every deployment build. It uses Gemini's API-hosted `gemini-embedding-001` backend and [requirements-render.txt](requirements-render.txt) on Render, avoiding the local PyTorch memory requirement. Set `GEMINI_API_KEY` in Render; the same key powers both Gemini embedding and the LLM fallback. Local development continues to use the higher-quality sentence-transformer backend by default.
+This repository includes [render.yaml](render.yaml), which creates a free Render web service and seeds the Chroma data during every deployment build. It uses Gemini's API-hosted `gemini-embedding-001` backend and [requirements-render.txt](requirements-render.txt) on Render, avoiding the local PyTorch memory requirement. Set `GEMINI_API_KEY` in Render; the same key powers both Gemini embedding and the Gemini-first LLM workflow. Local development continues to use the higher-quality sentence-transformer backend by default.
 
 1. Sign in at [Render](https://render.com/) using GitHub.
 2. Select **New +** → **Blueprint**, then select the `Mriduljn4/semantic-router-chat` repository.

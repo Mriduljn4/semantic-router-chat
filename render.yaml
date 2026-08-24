@@ -16,3 +16,7 @@ services:
         value: "false"
       - key: EMBEDDING_BACKEND
         value: gemini
+      - key: LLM_PRIMARY_PROVIDER
+        value: gemini
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
