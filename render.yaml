@@ -3,7 +3,7 @@ services:
     name: semantic-router-chat
     runtime: python
     plan: free
-    buildCommand: pip install -e . && python -m scripts.seed
+    buildCommand: pip install -r requirements-render.txt && python -m scripts.seed
     startCommand: uvicorn src.api:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     autoDeploy: true
