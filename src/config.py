@@ -20,9 +20,12 @@ class Settings(BaseSettings):
     EMBEDDING_BACKEND: str = "sentence-transformers"
     CHROMA_PERSIST_DIR: str = "./chroma_data"
     ROUTER_TOP_K: int = 6
+    LANGSMITH_TRACING: str = "false"
+    LANGSMITH_API_KEY: str = ""
+    LANGSMITH_PROJECT: str = "agents-ai-semantic-router"
     LANGCHAIN_TRACING_V2: str = "false"
     LANGCHAIN_API_KEY: str = ""
-    LANGCHAIN_PROJECT: str = "agents-ai-semantic-router"
+    LANGCHAIN_PROJECT: str = ""
 
     @property
     def chroma_path(self) -> Path:
