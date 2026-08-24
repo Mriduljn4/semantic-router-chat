@@ -6,7 +6,7 @@ button, textarea { font: inherit; }
 .app-shell { height: 100dvh; display: grid; grid-template-columns: minmax(260px, 31vw) minmax(0, 1fr); overflow: hidden; }
 .sidebar { min-height: 0; padding: 38px clamp(28px, 4vw, 72px); background: var(--navy); color: #f7f6f0; display: flex; flex-direction: column; overflow-y: auto; }
 .brand { color: inherit; text-decoration: none; display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; line-height: .9; letter-spacing: -.6px; }
-.brand-mark, .avatar { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 12px; background: var(--accent); color: var(--navy); font-size: 20px; }
+.brand-mark, .avatar { width: 35px; height: 35px; display: grid; place-items: center; flex: 0 0 35px; border-radius: 12px; background: var(--accent); color: var(--navy); font-size: 20px; }.avatar svg { width: 18px; height: 18px; }.user-message .avatar { border-radius: 50%; }
 .sidebar-copy { margin-top: clamp(82px, 18vh, 170px); max-width: 310px; }
 .eyebrow { margin: 0 0 11px; font-size: 10px; font-weight: 800; letter-spacing: 1.4px; color: var(--muted); }
 .sidebar .eyebrow { color: #aeb7d0; }
@@ -28,5 +28,4 @@ body { font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif; }
 .brand, h1, h2, .assistant-message .message-content :is(h1, h2, h3) { font-family: "Space Grotesk", ui-sans-serif, sans-serif; }
 .eyebrow, .agent-meta, .assistant-message .message-content pre code, .assistant-message .message-content :not(pre) > code { font-family: "DM Mono", ui-monospace, monospace; }
 .answer-streaming .message-content::after { content: "▋"; margin-left: 3px; color: #5870c9; animation: cursor-blink 900ms steps(1) infinite; }
-.source-list { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); color: #5e6678; font-size: 12px; }.source-list summary { cursor: pointer; color: #405582; font-family: "DM Mono", ui-monospace, monospace; font-weight: 500; }.source-list ol { margin: 10px 0 0; padding-left: 20px; }.source-list li + li { margin-top: 7px; }
 @keyframes cursor-blink { 50% { opacity: 0; } }

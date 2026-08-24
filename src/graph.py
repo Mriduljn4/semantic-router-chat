@@ -16,7 +16,6 @@ class QueryState(TypedDict):
     router_scores: dict[str, float]
     answer: str
     llm_provider_used: str
-    sources: list[str]
     tools_used: list[str]
 
 
@@ -35,7 +34,6 @@ async def run_agent(state: QueryState) -> dict:
     return {
         "answer": result.answer,
         "llm_provider_used": result.provider_used,
-        "sources": result.context,
         "tools_used": result.tools_used,
     }
 
@@ -56,7 +54,7 @@ def run_query(query: str) -> dict:
     state = graph.invoke({"query": query})
     return {
         key: state[key]
-        for key in ("answer", "routed_agent", "router_scores", "llm_provider_used", "sources", "tools_used")
+        for key in ("answer", "routed_agent", "router_scores", "llm_provider_used", "tools_used")
     }
 
 
@@ -65,5 +63,5 @@ async def run_query_async(query: str) -> dict:
     state = await graph.ainvoke({"query": query})
     return {
         key: state[key]
-        for key in ("answer", "routed_agent", "router_scores", "llm_provider_used", "sources", "tools_used")
+        for key in ("answer", "routed_agent", "router_scores", "llm_provider_used", "tools_used")
     }

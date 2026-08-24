@@ -15,10 +15,16 @@ from src.web_search import web_search
 
 logger = logging.getLogger(__name__)
 
+ANSWER_FORMAT = """Format answers for a clean chat interface:
+- Start with a direct answer or brief summary.
+- Use short Markdown headings and bullet lists only when they improve readability.
+- Use fenced code blocks with a language label for code or SQL.
+- Keep paragraphs short and avoid unnecessary repetition.
+- Do not include citations, source lists, links, or reference sections unless the user explicitly asks for them."""
+
 PROMPTS = {
     "research": """You are a research expert. Use supplied local context for factual claims and state when it is insufficient.
-For timely or missing information, use the web_search tool. Cite local context as [1], [2], etc. and cite web URLs in Markdown links.
-Do not claim sources support facts they do not contain. Use Markdown for headings, lists, and code when helpful.""",
+For timely or missing information, use the web_search tool. Do not claim information you cannot support.""",
     "coding": "You are a coding expert. Give practical, correct programming guidance and concise examples when useful.",
     "data": "You are a data expert. Help with SQL, analysis, transformations, metrics, and visualization reasoning.",
 }
@@ -41,7 +47,7 @@ def get_agent(agent_name: str, provider: Literal["groq", "gemini"]):
         model=get_model(provider),
         # Only Research can access the internet; Coding and Data remain tool-free.
         tools=[web_search] if agent_name == "research" else [],
-        system_prompt=PROMPTS[agent_name],
+        system_prompt=f"{PROMPTS[agent_name]}\n\n{ANSWER_FORMAT}",
         name=f"{agent_name}_{provider}",
     )
 
@@ -109,11 +115,8 @@ def run_agent(agent_name: str, query: str) -> AgentResult:
         )
         documents = result.get("documents", [])
         context = documents[0] if documents else []
-        # Numbered excerpts enable inline citations in the research response.
-        context_text = "\n\n".join(
-            f"[{index}] {document}" for index, document in enumerate(context, start=1)
-        )
-        prompt = f"Sources:\n{context_text}\n\nQuestion: {query}"
+        context_text = "\n\n".join(context)
+        prompt = f"Context:\n{context_text}\n\nQuestion: {query}"
 
     primary = get_settings().LLM_PRIMARY_PROVIDER
     providers: tuple[Literal["groq", "gemini"], Literal["groq", "gemini"]]

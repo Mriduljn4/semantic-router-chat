@@ -12,7 +12,9 @@ function appendMessage(text, role, metadata = "") {
   article.className = `message ${role}-message`;
   const avatar = document.createElement("div");
   avatar.className = "avatar";
-  avatar.textContent = role === "assistant" ? "✦" : "You";
+  avatar.innerHTML = role === "assistant"
+    ? '<i data-lucide="bot" aria-label="Assistant"></i>'
+    : '<i data-lucide="user-round" aria-label="You"></i>';
   const content = document.createElement("div");
   content.className = "message-content";
   const paragraph = document.createElement("p");
@@ -26,6 +28,7 @@ function appendMessage(text, role, metadata = "") {
   }
   article.append(avatar, content);
   conversation.append(article);
+  window.lucide?.createIcons({ attrs: { "stroke-width": 2 } });
   scrollToLatest();
   return article;
 }
@@ -40,21 +43,6 @@ function updateMessage(article, text, metadata = "") {
   }
   article.classList.remove("streaming-message");
   scrollToLatest();
-}
-
-function appendSources(article, sources) {
-  if (!sources?.length) return;
-  const sourceList = document.createElement("details");
-  sourceList.className = "source-list";
-  sourceList.innerHTML = `<summary>Sources (${sources.length})</summary>`;
-  const list = document.createElement("ol");
-  sources.forEach((source) => {
-    const item = document.createElement("li");
-    item.textContent = source;
-    list.append(item);
-  });
-  sourceList.append(list);
-  article.querySelector(".message-content").append(sourceList);
 }
 
 function renderMessage(element, text, role) {
@@ -107,7 +95,6 @@ async function submitQuery(value) {
           const scores = Object.entries(payload.router_scores).map(([agent, score]) => `${agent} ${Math.round(score * 100)}%`).join(" · ");
           const toolStatus = payload.tools_used?.length ? ` · tools: ${payload.tools_used.join(", ")}` : "";
           updateMessage(pending, "", `${payload.routed_agent} · ${payload.llm_provider_used} · ${scores}${toolStatus}`);
-          appendSources(pending, payload.sources);
           pending.classList.add("answer-streaming");
         }
         if (eventName === "answer_chunk") {
