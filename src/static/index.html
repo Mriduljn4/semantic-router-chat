@@ -16,10 +16,9 @@
     <section class="sidebar" aria-label="Application information">
       <a class="brand" href="/" aria-label="Semantic Router home">
         <span class="brand-mark">✦</span>
-        <span>Semantic<br>Router</span>
+        <span>My<br>ChatBot</span>
       </a>
       <div class="sidebar-copy">
-        <p class="eyebrow">LANGCHAIN + LANGGRAPH</p>
         <h1>Ask. Route. Answer.</h1>
         <p>Every prompt is matched to the right specialist before an answer is generated.</p>
       </div>
@@ -28,22 +27,10 @@
         <span><i class="dot coding"></i>Coding</span>
         <span><i class="dot data"></i>Data</span>
       </div>
-      <details class="how-it-works">
-        <summary>How routing works</summary>
-        <p>Your question is embedded and compared with capability examples for each specialist. The highest average cosine similarity chooses the intent and agent.</p>
-      </details>
       <p class="status"><span></span> System ready</p>
     </section>
 
     <section class="chat-panel">
-      <header class="chat-header">
-        <div>
-          <p class="eyebrow">MULTI-AGENT ASSISTANT</p>
-          <h2>How can I help?</h2>
-        </div>
-        <button class="clear-button" id="clear-chat" type="button">Clear chat</button>
-      </header>
-
       <div class="conversation" id="conversation" aria-live="polite">
         <article class="message assistant-message">
           <div class="avatar">✦</div>
@@ -70,7 +57,7 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/marked@15.0.7/lib/marked.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.11.1/lib/common.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js" defer></script>
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
   <script src="/static/app.js" defer></script>
 </body>

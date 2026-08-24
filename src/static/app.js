@@ -1,7 +1,6 @@
 const conversation = document.querySelector("#conversation");
 const form = document.querySelector("#chat-form");
 const query = document.querySelector("#query");
-const clearButton = document.querySelector("#clear-chat");
 
 function scrollToLatest() {
   conversation.scrollTop = conversation.scrollHeight;
@@ -124,4 +123,3 @@ form.addEventListener("submit", (event) => { event.preventDefault(); submitQuery
 query.addEventListener("keydown", (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); form.requestSubmit(); } });
 query.addEventListener("input", () => { query.style.height = "auto"; query.style.height = `${Math.min(query.scrollHeight, 150)}px`; });
 document.querySelectorAll("[data-query]").forEach((button) => button.addEventListener("click", () => submitQuery(button.dataset.query)));
-clearButton.addEventListener("click", () => { conversation.innerHTML = ""; appendMessage("Hi! I route questions to Research, Coding, or Data specialists. What would you like to explore?", "assistant"); });
