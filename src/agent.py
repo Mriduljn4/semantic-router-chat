@@ -8,7 +8,7 @@ from langchain_core.messages import BaseMessage
 
 from src.chroma_store import get_research_docs_collection
 from src.config import get_settings
-from src.embeddings import embed_text
+from src.embeddings import embed_query
 from src.llm import LLMProviderError, get_model
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ def run_agent(agent_name: str, query: str) -> AgentResult:
     prompt = query
     if agent_name == "research":
         result = get_research_docs_collection().query(
-            query_embeddings=[embed_text(query)],
+            query_embeddings=[embed_query(query)],
             n_results=get_settings().ROUTER_TOP_K,
             include=["documents"],
         )

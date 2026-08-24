@@ -35,7 +35,7 @@ def test_router_accuracy():
             agent = lookup[int(query_embeddings[0][0])]
             return {"metadatas": [[{"agent": agent}]], "distances": [[0.05]]}
 
-    with patch("src.router.embed_text", side_effect=lambda query: [CASES.index(next(case for case in CASES if case[0] == query))]), patch(
+    with patch("src.router.embed_query", side_effect=lambda query: [CASES.index(next(case for case in CASES if case[0] == query))]), patch(
         "src.router.get_capabilities_collection", return_value=Collection()
     ), patch("src.router.get_settings", return_value=SimpleNamespace(ROUTER_TOP_K=1)):
         passed = sum(route(query).routed_agent == expected for query, expected in CASES)

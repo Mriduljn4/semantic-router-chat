@@ -3,6 +3,9 @@ import hashlib
 import math
 import re
 
+from google import genai
+from google.genai import types
+
 from src.config import get_settings
 
 EMBEDDING_DIMENSION = 384
@@ -25,13 +28,38 @@ def _hash_embedding(text: str) -> list[float]:
     return [value / magnitude for value in vector] if magnitude else vector
 
 
-def embed_text(text: str) -> list[float]:
-    if get_settings().EMBEDDING_BACKEND == "hashing":
+@lru_cache
+def _gemini_client() -> genai.Client:
+    return genai.Client(api_key=get_settings().GEMINI_API_KEY)
+
+
+def _gemini_embeddings(texts: list[str], task_type: str) -> list[list[float]]:
+    response = _gemini_client().models.embed_content(
+        model=get_settings().GEMINI_EMBEDDING_MODEL,
+        contents=texts,
+        config=types.EmbedContentConfig(task_type=task_type, output_dimensionality=768),
+    )
+    return [embedding.values for embedding in response.embeddings]
+
+
+def embed_query(text: str) -> list[float]:
+    backend = get_settings().EMBEDDING_BACKEND
+    if backend == "hashing":
         return _hash_embedding(text)
+    if backend == "gemini":
+        return _gemini_embeddings([text], "RETRIEVAL_QUERY")[0]
     return _model().encode(text, normalize_embeddings=True).tolist()
 
 
-def embed_batch(texts: list[str]) -> list[list[float]]:
-    if get_settings().EMBEDDING_BACKEND == "hashing":
+def embed_documents(texts: list[str]) -> list[list[float]]:
+    backend = get_settings().EMBEDDING_BACKEND
+    if backend == "hashing":
         return [_hash_embedding(text) for text in texts]
+    if backend == "gemini":
+        return _gemini_embeddings(texts, "RETRIEVAL_DOCUMENT")
     return _model().encode(texts, normalize_embeddings=True).tolist()
+
+
+# Backward-compatible aliases for callers that do not need explicit task types.
+embed_text = embed_query
+embed_batch = embed_documents

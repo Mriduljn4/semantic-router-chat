@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.0-flash"
+    GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
     EMBEDDING_MODEL_NAME: str = "BAAI/bge-small-en-v1.5"
     EMBEDDING_BACKEND: str = "sentence-transformers"
     CHROMA_PERSIST_DIR: str = "./chroma_data"

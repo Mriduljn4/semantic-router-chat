@@ -3,7 +3,7 @@ from typing import Literal
 
 from src.chroma_store import get_capabilities_collection
 from src.config import get_settings
-from src.embeddings import embed_text
+from src.embeddings import embed_query
 
 AGENTS = ("research", "coding", "data")
 
@@ -16,7 +16,7 @@ class RoutingDecision:
 
 def route(query: str) -> RoutingDecision:
     result = get_capabilities_collection().query(
-        query_embeddings=[embed_text(query)], n_results=get_settings().ROUTER_TOP_K,
+        query_embeddings=[embed_query(query)], n_results=get_settings().ROUTER_TOP_K,
         include=["metadatas", "distances"],
     )
     grouped = {agent: [] for agent in AGENTS}

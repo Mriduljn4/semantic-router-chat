@@ -10,7 +10,7 @@ def test_route_chooses_highest_mean_similarity():
         "distances": [[0.10, 0.30, 0.40]],
     }
     with patch("src.router.get_capabilities_collection", return_value=collection), patch(
-        "src.router.embed_text", return_value=[0.1]
+        "src.router.embed_query", return_value=[0.1]
     ):
         decision = route("help me fix a Python exception")
     assert decision.routed_agent == "coding"
