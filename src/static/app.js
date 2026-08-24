@@ -50,7 +50,13 @@ async function submitQuery(value) {
       body: JSON.stringify({ query: text }),
     });
     const payload = await response.json();
-    if (!response.ok) throw new Error(payload.detail || "Unable to process your request.");
+    if (!response.ok) {
+      const detail = payload.detail;
+      const message = typeof detail === "object" && detail !== null
+        ? `${detail.message || "Unable to process your request."} (${detail.reason || "unknown error"})`
+        : detail || "Unable to process your request.";
+      throw new Error(message);
+    }
     appendMessage(payload.answer, "assistant", `${payload.routed_agent} · ${payload.llm_provider_used}`);
   } catch (error) {
     appendMessage(error.message || "Something went wrong. Please try again.", "assistant", "System");
