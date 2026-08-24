@@ -1,9 +1,13 @@
 from dataclasses import dataclass
+import logging
 from typing import Literal
 
 from src.chroma_store import get_capabilities_collection
 from src.config import get_settings
 from src.embeddings import embed_query
+from src.intent_classifier import classify_intent
+
+logger = logging.getLogger(__name__)
 
 AGENTS = ("research", "coding", "data")
 
@@ -14,6 +18,7 @@ class RoutingDecision:
 
     routed_agent: Literal["research", "coding", "data"]
     router_scores: dict[str, float]
+    classifier_used: Literal["groq", "semantic"]
 
 
 def route(query: str) -> RoutingDecision:
@@ -34,5 +39,10 @@ def route(query: str) -> RoutingDecision:
         grouped[metadata["agent"]].append(1 - float(distance))
     scores = {agent: (sum(values) / len(values) if values else 0.0) for agent, values in grouped.items()}
     # A future confidence threshold can route uncertain queries to a generalist.
-    best = max(scores, key=scores.get)
-    return RoutingDecision(best, scores)  # type: ignore[arg-type]
+    semantic_best = max(scores, key=scores.get)
+    try:
+        return RoutingDecision(classify_intent(query), scores, "groq")
+    except Exception:
+        # Chroma remains a reliable intent fallback if Groq is unavailable.
+        logger.warning("Groq intent classifier failed; using semantic routing.", exc_info=True)
+        return RoutingDecision(semantic_best, scores, "semantic")  # type: ignore[arg-type]

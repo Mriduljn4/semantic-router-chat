@@ -14,6 +14,7 @@ class QueryState(TypedDict):
     query: str
     routed_agent: str
     router_scores: dict[str, float]
+    intent_classifier: str
     answer: str
     llm_provider_used: str
     tools_used: list[str]
@@ -23,7 +24,11 @@ async def route(state: QueryState) -> dict:
     """Populate the chosen specialist and the intent-classifier similarity scores."""
     # Chroma's Python client is synchronous, so run it outside the ASGI event loop.
     decision = await asyncio.to_thread(decide_route, state["query"])
-    return {"routed_agent": decision.routed_agent, "router_scores": decision.router_scores}
+    return {
+        "routed_agent": decision.routed_agent,
+        "router_scores": decision.router_scores,
+        "intent_classifier": decision.classifier_used,
+    }
 
 
 async def run_agent(state: QueryState) -> dict:
@@ -54,7 +59,7 @@ def run_query(query: str) -> dict:
     state = graph.invoke({"query": query})
     return {
         key: state[key]
-        for key in ("answer", "routed_agent", "router_scores", "llm_provider_used", "tools_used")
+        for key in ("answer", "routed_agent", "router_scores", "intent_classifier", "llm_provider_used", "tools_used")
     }
 
 
@@ -63,5 +68,5 @@ async def run_query_async(query: str) -> dict:
     state = await graph.ainvoke({"query": query})
     return {
         key: state[key]
-        for key in ("answer", "routed_agent", "router_scores", "llm_provider_used", "tools_used")
+        for key in ("answer", "routed_agent", "router_scores", "intent_classifier", "llm_provider_used", "tools_used")
     }

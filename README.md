@@ -5,8 +5,8 @@ A FastAPI chat app that routes questions to Research, Coding, or Data specialist
 ## How it works
 
 1. Guardrails validate the user query.
-2. ChromaDB compares the query with capability profiles.
-3. The highest semantic-similarity score selects a specialist.
+2. Groq structured output selects the intent: Research, Coding, or Data.
+3. ChromaDB calculates semantic similarity scores for visibility and acts as a fallback if Groq is unavailable.
 4. The specialist generates an answer. Research retrieves local RAG sources and can use public web search for timely information.
 
 ## Run locally

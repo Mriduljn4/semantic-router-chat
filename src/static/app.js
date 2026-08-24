@@ -94,7 +94,7 @@ async function submitQuery(value) {
         if (eventName === "answer_start") {
           const scores = Object.entries(payload.router_scores).map(([agent, score]) => `${agent} ${Math.round(score * 100)}%`).join(" · ");
           const toolStatus = payload.tools_used?.length ? ` · tools: ${payload.tools_used.join(", ")}` : "";
-          updateMessage(pending, "", `${payload.routed_agent} · ${payload.llm_provider_used} · ${scores}${toolStatus}`);
+          updateMessage(pending, "", `${payload.routed_agent} · ${payload.intent_classifier} intent · ${payload.llm_provider_used} · ${scores}${toolStatus}`);
           pending.classList.add("answer-streaming");
         }
         if (eventName === "answer_chunk") {
