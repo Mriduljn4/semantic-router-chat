@@ -52,7 +52,10 @@ def query(request: QueryRequest) -> QueryResponse:
         return QueryResponse.model_validate(run_query(request.query))
     except LLMProviderError as error:
         logger.exception("All LLM providers failed to generate a response.")
-        raise HTTPException(status_code=503, detail="Language model service is unavailable.") from error
+        raise HTTPException(
+            status_code=503,
+            detail={"message": "Language model service is unavailable.", "reason": error.reason},
+        ) from error
     except (RuntimeError, ValueError) as error:
         logger.exception("Query processing failed.")
         raise HTTPException(status_code=503, detail="Query processing is temporarily unavailable.") from error

@@ -46,3 +46,12 @@ def test_provider_error_is_raised_when_both_providers_fail():
             run_agent("coding", "hello")
     assert isinstance(error.value.__cause__, RuntimeError)
     assert str(error.value.__cause__) == "gemini failed"
+
+
+def test_provider_error_classifies_missing_model():
+    with patch("src.agent.get_agent", side_effect=[object(), object()]), patch(
+        "src.agent._invoke_agent", side_effect=[RuntimeError("primary failed"), RuntimeError("Model not found")]
+    ):
+        with pytest.raises(LLMProviderError) as error:
+            run_agent("coding", "hello")
+    assert error.value.reason == "model_unavailable"

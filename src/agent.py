@@ -48,6 +48,17 @@ def _invoke_agent(agent, prompt: str) -> str:
     return _message_text(result["messages"][-1])
 
 
+def _provider_error_reason(error: Exception) -> str:
+    message = str(error).lower()
+    if "model" in message and ("not found" in message or "not available" in message):
+        return "model_unavailable"
+    if any(term in message for term in ("api key", "api_key", "unauthorized", "authentication", "permission denied")):
+        return "authentication_failed"
+    if any(term in message for term in ("quota", "rate limit", "resource exhausted")):
+        return "quota_or_rate_limit"
+    return "provider_error"
+
+
 def run_agent(agent_name: str, query: str) -> AgentResult:
     context: list[str] = []
     prompt = query
@@ -76,4 +87,7 @@ def run_agent(agent_name: str, query: str) -> AgentResult:
             return AgentResult(answer, providers[1], context)
         except Exception as error:
             logger.error("Fallback %s agent failed.", providers[1], exc_info=True)
-            raise LLMProviderError("Both configured LLM providers failed.") from error
+            raise LLMProviderError(
+                "Both configured LLM providers failed.",
+                reason=_provider_error_reason(error),
+            ) from error

@@ -41,4 +41,7 @@ def test_query_returns_service_unavailable_when_providers_fail():
     with patch("src.api.run_query", side_effect=LLMProviderError("providers failed")):
         response = TestClient(app).post("/query", json={"query": "Explain RAG"})
     assert response.status_code == 503
-    assert response.json()["detail"] == "Language model service is unavailable."
+    assert response.json()["detail"] == {
+        "message": "Language model service is unavailable.",
+        "reason": "provider_error",
+    }

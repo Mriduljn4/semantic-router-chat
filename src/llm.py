@@ -11,6 +11,10 @@ from src.config import get_settings
 class LLMProviderError(RuntimeError):
     """Raised when neither configured LLM provider can generate a response."""
 
+    def __init__(self, message: str, reason: str = "provider_error") -> None:
+        super().__init__(message)
+        self.reason = reason
+
 
 @lru_cache
 def get_model(provider: Literal["groq", "gemini"]) -> BaseChatModel:
