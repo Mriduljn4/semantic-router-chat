@@ -75,6 +75,16 @@ This repository includes [render.yaml](render.yaml), which creates a free Render
 
 Render will provide the public URL after deployment. Free services sleep when idle and may take a short time to wake up for the next request.
 
+## Deploy on Google Cloud Run
+
+The [Dockerfile](Dockerfile) uses the same lean runtime dependencies as Render, seeds transient Chroma data at container startup, and uses Gemini API embeddings. Before deploying, install the Google Cloud CLI, authenticate, select a billing-enabled Google Cloud project, and configure `GEMINI_API_KEY` as a secret environment variable in the Cloud Run console. The service needs no local GPU or PyTorch installation.
+
+```bash
+$env:CLOUDSDK_METRICS_ENVIRONMENT="datacloud.vscode"; gcloud run deploy semantic-router-chat --source . --region us-central1 --allow-unauthenticated --set-env-vars EMBEDDING_BACKEND=gemini
+```
+
+After the service is created, open its **Edit and deploy new revision** page, add `GEMINI_API_KEY` as a secret environment variable, and deploy the revision. Cloud Run's container filesystem is ephemeral, so the service seeds its small Chroma collections when each new instance starts.
+
 ## Next steps
 
 A next iteration could add a confidence threshold that sends uncertain requests to a general fallback, expand the small labeled routing set into a measured evaluation dataset, and deploy the same FastAPI service to a free host such as Render. These ideas are intentionally not implemented in this lean version.
