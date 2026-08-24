@@ -53,7 +53,7 @@ async function submitQuery(value) {
     if (!response.ok) {
       const detail = payload.detail;
       const message = typeof detail === "object" && detail !== null
-        ? `${detail.message || "Unable to process your request."} (${detail.reason || "unknown error"})`
+        ? `${detail.message || "Unable to process your request."} (${detail.reason || "unknown error"})${Object.keys(detail.attempts || {}).length ? ` — ${Object.entries(detail.attempts).map(([provider, reason]) => `${provider}: ${reason}`).join("; ")}` : ""}`
         : detail || "Unable to process your request.";
       throw new Error(message);
     }

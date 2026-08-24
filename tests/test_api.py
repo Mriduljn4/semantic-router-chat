@@ -44,4 +44,5 @@ def test_query_returns_service_unavailable_when_providers_fail():
     assert response.json()["detail"] == {
         "message": "Language model service is unavailable.",
         "reason": "provider_error",
+        "attempts": {},
     }

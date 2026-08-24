@@ -59,6 +59,11 @@ def _provider_error_reason(error: Exception) -> str:
     return "provider_error"
 
 
+def _safe_provider_failure(error: Exception) -> str:
+    """Return diagnostics safe to share with API clients; never include provider secrets."""
+    return f"{_provider_error_reason(error)} ({type(error).__name__})"
+
+
 def run_agent(agent_name: str, query: str) -> AgentResult:
     context: list[str] = []
     prompt = query
@@ -80,14 +85,19 @@ def run_agent(agent_name: str, query: str) -> AgentResult:
     try:
         answer = _invoke_agent(get_agent(agent_name, providers[0]), prompt)
         return AgentResult(answer, providers[0], context)
-    except Exception:
+    except Exception as primary_error:
         logger.warning("Primary %s agent failed; trying %s fallback.", providers[0], providers[1], exc_info=True)
         try:
             answer = _invoke_agent(get_agent(agent_name, providers[1]), prompt)
             return AgentResult(answer, providers[1], context)
         except Exception as error:
             logger.error("Fallback %s agent failed.", providers[1], exc_info=True)
+            attempts = {
+                providers[0]: _safe_provider_failure(primary_error),
+                providers[1]: _safe_provider_failure(error),
+            }
             raise LLMProviderError(
                 "Both configured LLM providers failed.",
                 reason=_provider_error_reason(error),
+                attempts=attempts,
             ) from error

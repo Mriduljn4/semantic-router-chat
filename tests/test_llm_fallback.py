@@ -46,6 +46,10 @@ def test_provider_error_is_raised_when_both_providers_fail():
             run_agent("coding", "hello")
     assert isinstance(error.value.__cause__, RuntimeError)
     assert str(error.value.__cause__) == "gemini failed"
+    assert error.value.attempts == {
+        "groq": "provider_error (RuntimeError)",
+        "gemini": "provider_error (RuntimeError)",
+    }
 
 
 def test_provider_error_classifies_missing_model():

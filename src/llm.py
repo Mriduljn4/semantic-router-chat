@@ -11,9 +11,15 @@ from src.config import get_settings
 class LLMProviderError(RuntimeError):
     """Raised when neither configured LLM provider can generate a response."""
 
-    def __init__(self, message: str, reason: str = "provider_error") -> None:
+    def __init__(
+        self,
+        message: str,
+        reason: str = "provider_error",
+        attempts: dict[str, str] | None = None,
+    ) -> None:
         super().__init__(message)
         self.reason = reason
+        self.attempts = attempts or {}
 
 
 @lru_cache

@@ -54,7 +54,11 @@ def query(request: QueryRequest) -> QueryResponse:
         logger.exception("All LLM providers failed to generate a response.")
         raise HTTPException(
             status_code=503,
-            detail={"message": "Language model service is unavailable.", "reason": error.reason},
+            detail={
+                "message": "Language model service is unavailable.",
+                "reason": error.reason,
+                "attempts": error.attempts,
+            },
         ) from error
     except (RuntimeError, ValueError) as error:
         logger.exception("Query processing failed.")
