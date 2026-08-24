@@ -1,8 +1,8 @@
 import logging
 from pathlib import Path
 from typing import Literal
+import asyncio
 import json
-import re
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -10,9 +10,12 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
+from src.agent import astream_agent
+from src.config import get_settings
 from src.guardrails import GuardrailViolation, validate_input
 from src.graph import run_query_async
 from src.llm import LLMProviderError
+from src.router import route as decide_route
 
 logger = logging.getLogger(__name__)
 
@@ -81,11 +84,23 @@ async def query_stream(request: QueryRequest) -> StreamingResponse:
     async def generate():
         yield event("status", {"message": "Understanding your intent…"})
         try:
-            result = QueryResponse.model_validate(await run_query_async(request.query))
-            yield event("status", {"message": f"{result.routed_agent.title()} specialist is preparing an answer…"})
-            yield event("answer_start", result.model_dump(exclude={"answer"}))
-            for chunk in re.findall(r"\S+\s*", result.answer):
-                yield event("answer_chunk", {"text": chunk})
+            decision = await asyncio.to_thread(decide_route, request.query)
+            yield event("status", {"message": f"{decision.routed_agent.title()} specialist is responding…"})
+            yield event(
+                "answer_start",
+                {
+                    "routed_agent": decision.routed_agent,
+                    "router_scores": decision.router_scores,
+                    "intent_classifier": decision.classifier_used,
+                    "llm_provider_used": get_settings().LLM_PRIMARY_PROVIDER,
+                    "tools_used": [],
+                },
+            )
+            async for stream_event in astream_agent(decision.routed_agent, request.query):
+                if stream_event["type"] == "token":
+                    yield event("answer_chunk", {"text": stream_event["text"]})
+                elif stream_event["type"] == "tool":
+                    yield event("status", {"message": f"Using {stream_event['name']}…"})
             yield event("answer_complete", {})
         except LLMProviderError as error:
             logger.exception("All LLM providers failed to generate a response.")

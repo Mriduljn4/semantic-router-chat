@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 from functools import lru_cache
 import logging
-from typing import Literal
+from typing import AsyncIterator, Literal
 
 from langchain.agents import create_agent
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import AIMessageChunk, BaseMessage
 
 from src.chroma_store import get_research_docs_collection
 from src.config import get_settings
@@ -15,17 +15,19 @@ from src.web_search import web_search
 
 logger = logging.getLogger(__name__)
 
-ANSWER_FORMAT = """Format answers for a clean chat interface:
-- Start with a direct answer or brief summary.
-- Use short Markdown headings and bullet lists only when they improve readability.
+ANSWER_FORMAT = """Write complete, explanatory answers for a chat interface:
+- Start with a direct answer, then explain the important reasoning, concepts, and trade-offs.
+- For conceptual questions, cover what it is, how it works, why it matters, and a practical example when useful.
+- For implementation questions, provide an actionable approach, explain the key decisions, and include a working example when appropriate.
+- Use short Markdown headings, bullets, and numbered steps when they improve clarity.
 - Use fenced code blocks with a language label for code or SQL.
-- Keep paragraphs short and avoid unnecessary repetition.
+- Keep paragraphs readable, but do not make an answer so brief that it skips the explanation. Only give a short answer when the user explicitly asks for one.
 - Do not include citations, source lists, links, or reference sections unless the user explicitly asks for them."""
 
 PROMPTS = {
     "research": """You are a research expert. Use supplied local context for factual claims and state when it is insufficient.
 For timely or missing information, use the web_search tool. Do not claim information you cannot support.""",
-    "coding": "You are a coding expert. Give practical, correct programming guidance and concise examples when useful.",
+    "coding": "You are a coding expert. Give practical, correct programming guidance, explain why the solution works, and include complete examples when useful.",
     "data": "You are a data expert. Help with SQL, analysis, transformations, metrics, and visualization reasoning.",
 }
 
@@ -81,6 +83,60 @@ def _invoke_agent(agent, prompt: str) -> tuple[str, list[str]]:
     return _message_text(result["messages"][-1]), tools_used
 
 
+def _research_prompt(query: str) -> tuple[str, list[str]]:
+    """Build the Research prompt with local RAG context when required."""
+    result = get_research_docs_collection().query(
+        query_embeddings=[embed_query(query)],
+        n_results=get_settings().ROUTER_TOP_K,
+        include=["documents"],
+    )
+    documents = result.get("documents", [])
+    context = documents[0] if documents else []
+    return f"Context:\n{'\n\n'.join(context)}\n\nQuestion: {query}", context
+
+
+def _provider_order() -> tuple[Literal["groq", "gemini"], Literal["groq", "gemini"]]:
+    """Return the configured answer provider followed by its single fallback."""
+    return ("gemini", "groq") if get_settings().LLM_PRIMARY_PROVIDER == "gemini" else ("groq", "gemini")
+
+
+async def astream_agent(agent_name: str, query: str) -> AsyncIterator[dict[str, str]]:
+    """Yield actual provider tokens and tool activity from a specialist agent."""
+    prompt = query
+    if agent_name == "research":
+        import asyncio
+
+        # Chroma is synchronous; keep retrieval off the event loop.
+        prompt, _ = await asyncio.to_thread(_research_prompt, query)
+
+    providers = _provider_order()
+    for index, provider in enumerate(providers):
+        emitted_token = False
+        try:
+            agent = get_agent(agent_name, provider)
+            async for message, _metadata in agent.astream(
+                {"messages": [{"role": "user", "content": prompt}]},
+                stream_mode="messages",
+            ):
+                if getattr(message, "type", "") == "tool" and getattr(message, "name", None):
+                    yield {"type": "tool", "name": message.name, "provider": provider}
+                if isinstance(message, AIMessageChunk):
+                    text = _message_text(message)
+                    if text:
+                        emitted_token = True
+                        yield {"type": "token", "text": text, "provider": provider}
+            return
+        except Exception as error:
+            # A fallback is safe only before output begins, avoiding mixed answers.
+            if emitted_token or index == len(providers) - 1:
+                raise LLMProviderError(
+                    "Both configured LLM providers failed.",
+                    reason=_provider_error_reason(error),
+                    attempts={provider: _safe_provider_failure(error)},
+                ) from error
+            logger.warning("Streaming %s agent failed before output; trying fallback.", provider, exc_info=True)
+
+
 def _provider_error_reason(error: Exception) -> str:
     """Map provider exceptions to safe, actionable categories for API clients."""
     message = str(error).lower()
@@ -108,19 +164,9 @@ def run_agent(agent_name: str, query: str) -> AgentResult:
     prompt = query
     if agent_name == "research":
         # RAG is restricted to the research specialist to avoid irrelevant context.
-        result = get_research_docs_collection().query(
-            query_embeddings=[embed_query(query)],
-            n_results=get_settings().ROUTER_TOP_K,
-            include=["documents"],
-        )
-        documents = result.get("documents", [])
-        context = documents[0] if documents else []
-        context_text = "\n\n".join(context)
-        prompt = f"Context:\n{context_text}\n\nQuestion: {query}"
+        prompt, context = _research_prompt(query)
 
-    primary = get_settings().LLM_PRIMARY_PROVIDER
-    providers: tuple[Literal["groq", "gemini"], Literal["groq", "gemini"]]
-    providers = ("gemini", "groq") if primary == "gemini" else ("groq", "gemini")
+    providers = _provider_order()
 
     try:
         answer, tools_used = _invoke_agent(get_agent(agent_name, providers[0]), prompt)
