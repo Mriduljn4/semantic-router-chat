@@ -4,7 +4,7 @@ from typing import Literal
 from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
-from langchain_nvidia import ChatNvidia
+from langchain_nvidia_ai_endpoints import ChatNVIDIA
 
 from src.config import get_settings
 
