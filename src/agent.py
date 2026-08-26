@@ -134,6 +134,7 @@ def _research_prompt(query: str) -> tuple[str, list[str], list[str]]:
     documents = result.get("documents", [])
     local_context = documents[0] if documents else []
     web_context = ""
+    web_search_status = "not needed"
     tools_used: list[str] = []
 
     local_context_is_relevant = _local_context_covers_query(query, local_context)
@@ -142,17 +143,25 @@ def _research_prompt(query: str) -> tuple[str, list[str], list[str]]:
         try:
             web_context = web_search.invoke({"query": query})
             tools_used.append("web_search")
+            web_search_status = "available"
         except Exception:
             # The agent still has the web-search tool and can retry if needed.
+            web_search_status = "unavailable"
             logger.warning("Automatic web search failed; continuing with available context.", exc_info=True)
 
     prompt = f"""Local context (may be unrelated):
 {'\n\n'.join(local_context) or 'No local context found.'}
 
+Web-search status: {web_search_status}
+
 Web context (use when provided):
 {web_context or 'No web context was pre-fetched.'}
 
 Question: {query}"""
+    if needs_web_context and not web_context:
+        prompt += """
+
+Important: This question needs current or externally verified information, but web search is unavailable. Do not provide potentially stale model knowledge as current news. Briefly state that current information could not be verified and ask the user to retry after web search is configured."""
     return prompt, local_context, tools_used
 
 
