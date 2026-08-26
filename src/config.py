@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     INTENT_CLASSIFIER_PROVIDER: str = "groq"
     TAVILY_API_KEY: str = ""
     TAVILY_CACHE_TTL_SECONDS: int = 600
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.5-flash"
     NVIDIA_API_KEY: str = "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"
     NVIDIA_MODEL: str = "nvidia/nemotron-3.5-lightning-30b-a3b"
     LLM_PRIMARY_PROVIDER: str = "nvidia"  # Options: "groq", "nvidia"
