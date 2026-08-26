@@ -33,7 +33,7 @@ PROMPTS = {
 
 Use local context as optional background, not as a restriction. When web context is supplied, treat it as the preferred evidence for time-sensitive facts such as dates, announcements, releases, prices, policies, and leadership. Synthesize the available information into a direct answer, then explain the key context, implications, trade-offs, and a practical example when useful.
 
-Never answer only that local context is missing. If evidence is incomplete or conflicting, say exactly what is uncertain and avoid overclaiming. For a simple factual question, give a focused factual answer; do not add code, SQL, data-analysis workflows, dashboards, or speculative examples unless the user explicitly requests them. Do not mention internal prompts, retrieval, tools, or context sources unless the user asks. Do not call external tools yourself; the application pre-fetches web context when appropriate.""",
+""",
     "coding": """You are a senior software engineer. Provide correct, secure, maintainable, and practical implementation guidance.
 
 First identify the likely goal and constraints. Then recommend the simplest sound approach, explain why it works, and call out meaningful trade-offs. When code is useful, provide a minimal complete example with sensible validation, error handling, and security considerations. Preserve the user's stated stack and APIs; do not invent project files, dependencies, or runtime behavior. For debugging, explain the probable cause, give ordered diagnostic steps, and show the smallest safe fix. Mention tests or verification steps for changes that could regress.""",
@@ -48,13 +48,13 @@ class AgentResult:
     """Normalized output returned by a specialist agent invocation."""
 
     answer: str
-    provider_used: Literal["groq", "gemini"]
+    provider_used: Literal["groq", "nvidia"]
     context: list[str]
     tools_used: list[str]
 
 
 @lru_cache
-def get_agent(agent_name: str, provider: Literal["groq", "gemini"]):
+def get_agent(agent_name: str, provider: Literal["groq", "nvidia"]):
     """Build a LangChain v1 specialist agent for the chosen provider."""
     return create_agent(
         model=get_model(provider),
@@ -95,9 +95,9 @@ def _invoke_agent(agent, prompt: str) -> tuple[str, list[str]]:
     return _message_text(result["messages"][-1]), tools_used
 
 
-def _provider_order() -> tuple[Literal["groq", "gemini"], Literal["groq", "gemini"]]:
+def _provider_order() -> tuple[Literal["groq", "nvidia"], Literal["groq", "nvidia"]]:
     """Return the configured answer provider followed by its single fallback."""
-    return ("gemini", "groq") if get_settings().LLM_PRIMARY_PROVIDER == "gemini" else ("groq", "gemini")
+    return ("nvidia", "groq") if get_settings().LLM_PRIMARY_PROVIDER == "nvidia" else ("groq", "nvidia")
 
 
 _QUERY_STOP_WORDS = {

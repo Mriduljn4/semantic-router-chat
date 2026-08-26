@@ -40,7 +40,7 @@ class QueryResponse(BaseModel):
     routed_agent: Literal["research", "coding", "data"]
     router_scores: dict[str, float]
     intent_classifier: Literal["groq"]
-    llm_provider_used: Literal["groq", "gemini"]
+    llm_provider_used: Literal["groq", "nvidia"]
     tools_used: list[str]
 
 
