@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from functools import lru_cache
 import logging
+import re
 from typing import Literal
 
 from langchain.agents import create_agent
@@ -23,8 +24,8 @@ ANSWER_FORMAT = """Format answers for a clean chat interface:
 - Do not include citations, source lists, links, or reference sections unless the user explicitly asks for them."""
 
 PROMPTS = {
-    "research": """You are a research expert. Use supplied local context for factual claims and state when it is insufficient.
-For timely or missing information, use the web_search tool. Do not claim information you cannot support.""",
+    "research": """You are a research expert. Answer the user's question directly and explain it clearly.
+Local context is optional background, not a restriction on the answer. When supplied web context covers the question, use it to answer; never respond merely that local context is missing. If neither context source covers the question, call web_search before answering. Do not claim information you cannot support.""",
     "coding": "You are a coding expert. Give practical, correct programming guidance and concise examples when useful.",
     "data": "You are a data expert. Help with SQL, analysis, transformations, metrics, and visualization reasoning.",
 }
@@ -81,6 +82,54 @@ def _invoke_agent(agent, prompt: str) -> tuple[str, list[str]]:
     return _message_text(result["messages"][-1]), tools_used
 
 
+_QUERY_STOP_WORDS = {
+    "a", "an", "and", "are", "be", "can", "do", "does", "explain", "for", "how",
+    "i", "is", "it", "of", "on", "the", "to", "was", "what", "with", "you",
+}
+
+
+def _local_context_covers_query(query: str, documents: list[str]) -> bool:
+    """Return whether meaningful query terms occur in the local RAG documents."""
+    query_terms = {
+        term for term in re.findall(r"[a-z0-9]+", query.lower())
+        if len(term) > 2 and term not in _QUERY_STOP_WORDS
+    }
+    if not query_terms:
+        return True
+    corpus = " ".join(documents).lower()
+    return any(term in corpus for term in query_terms)
+
+
+def _research_prompt(query: str) -> tuple[str, list[str], list[str]]:
+    """Build a grounded Research prompt and search when local RAG lacks coverage."""
+    result = get_research_docs_collection().query(
+        query_embeddings=[embed_query(query)],
+        n_results=get_settings().ROUTER_TOP_K,
+        include=["documents"],
+    )
+    documents = result.get("documents", [])
+    local_context = documents[0] if documents else []
+    web_context = ""
+    tools_used: list[str] = []
+
+    if not _local_context_covers_query(query, local_context):
+        try:
+            web_context = web_search.invoke({"query": query})
+            tools_used.append("web_search")
+        except Exception:
+            # The agent still has the web-search tool and can retry if needed.
+            logger.warning("Automatic web search failed; continuing with available context.", exc_info=True)
+
+    prompt = f"""Local context (may be unrelated):
+{'\n\n'.join(local_context) or 'No local context found.'}
+
+Web context (use when provided):
+{web_context or 'No web context was pre-fetched.'}
+
+Question: {query}"""
+    return prompt, local_context, tools_used
+
+
 def _provider_error_reason(error: Exception) -> str:
     """Map provider exceptions to safe, actionable categories for API clients."""
     message = str(error).lower()
@@ -105,18 +154,11 @@ def run_agent(agent_name: str, query: str) -> AgentResult:
     for ingestion. Coding and data specialists receive the query directly.
     """
     context: list[str] = []
+    prefetched_tools: list[str] = []
     prompt = query
     if agent_name == "research":
         # RAG is restricted to the research specialist to avoid irrelevant context.
-        result = get_research_docs_collection().query(
-            query_embeddings=[embed_query(query)],
-            n_results=get_settings().ROUTER_TOP_K,
-            include=["documents"],
-        )
-        documents = result.get("documents", [])
-        context = documents[0] if documents else []
-        context_text = "\n\n".join(context)
-        prompt = f"Context:\n{context_text}\n\nQuestion: {query}"
+        prompt, context, prefetched_tools = _research_prompt(query)
 
     primary = get_settings().LLM_PRIMARY_PROVIDER
     providers: tuple[Literal["groq", "gemini"], Literal["groq", "gemini"]]
@@ -124,13 +166,13 @@ def run_agent(agent_name: str, query: str) -> AgentResult:
 
     try:
         answer, tools_used = _invoke_agent(get_agent(agent_name, providers[0]), prompt)
-        return AgentResult(sanitize_output(answer), providers[0], context, tools_used)
+        return AgentResult(sanitize_output(answer), providers[0], context, list(dict.fromkeys(prefetched_tools + tools_used)))
     except Exception as primary_error:
         # Only the alternate provider is tried; no unbounded retry loop is used.
         logger.warning("Primary %s agent failed; trying %s fallback.", providers[0], providers[1], exc_info=True)
         try:
             answer, tools_used = _invoke_agent(get_agent(agent_name, providers[1]), prompt)
-            return AgentResult(sanitize_output(answer), providers[1], context, tools_used)
+            return AgentResult(sanitize_output(answer), providers[1], context, list(dict.fromkeys(prefetched_tools + tools_used)))
         except Exception as error:
             logger.error("Fallback %s agent failed.", providers[1], exc_info=True)
             attempts = {
