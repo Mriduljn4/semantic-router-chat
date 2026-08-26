@@ -18,10 +18,13 @@ class IntentClassification(BaseModel):
 
 
 CLASSIFIER_PROMPT = """Classify the request into exactly one specialist.
-- research: explanations, comparisons, investigations, or factual research
-- coding: software design, debugging, implementation, tests, and developer tools
-- data: SQL, metrics, analytics, transformations, dashboards, and visualization
-Select the user's primary intent. Do not answer the request."""
+
+Routing rules, in priority order:
+- research: default for general knowledge, factual questions, named people, companies, products, events, history, news, explanations, comparisons, and investigations. Examples: "Virat Kohli", "What is Amazon Bedrock?", "Compare AWS and Azure".
+- coding: only when the user explicitly asks about programming, source code, debugging, implementation, software architecture, tests, or developer tooling.
+- data: only when the user explicitly asks to write or analyze SQL, datasets, metrics, dashboards, transformations, visualizations, statistics, or data pipelines.
+
+Do not infer a data task merely because a factual answer could contain statistics or a table. Select the user's primary intent. Do not answer the request."""
 
 
 @lru_cache
