@@ -136,7 +136,7 @@ class AgentResult:
 
 
 @lru_cache
-def get_agent(agent_name: str, provider: Literal["groq", "nvidia"]):
+def get_agent(agent_name: str, provider: Literal["nvidia","groq"]):
     """Build a LangChain v1 specialist agent for the chosen provider."""
     return create_agent(
         model=get_model(provider),
@@ -177,7 +177,7 @@ def _invoke_agent(agent, prompt: str) -> tuple[str, list[str]]:
     return _message_text(result["messages"][-1]), tools_used
 
 
-def _provider_order() -> tuple[Literal["groq", "nvidia"], Literal["groq", "nvidia"]]:
+def _provider_order() -> tuple[Literal["nvidia", "groq"], Literal["nvidia", "groq"]]:
     """Return the configured answer provider followed by its single fallback."""
     return ("nvidia", "groq") if get_settings().LLM_PRIMARY_PROVIDER == "nvidia" else ("groq", "nvidia")
 
