@@ -16,18 +16,30 @@ from src.web_search import web_search
 
 logger = logging.getLogger(__name__)
 
-ANSWER_FORMAT = """Format answers for a clean chat interface:
-- Start with a direct answer or brief summary.
-- Use short Markdown headings and bullet lists only when they improve readability.
-- Use fenced code blocks with a language label for code or SQL.
-- Keep paragraphs short and avoid unnecessary repetition.
+ANSWER_FORMAT = """Produce a useful, professional answer for a chat interface.
+
+Response rules:
+- Answer the user's actual question immediately; do not restate it or describe your role.
+- Match detail to the question. Give enough explanation to be useful, but avoid filler and repetition.
+- Use short Markdown headings, bullets, or numbered steps only when they make the answer easier to scan.
+- Define important technical terms the first time they are used when the user may not know them.
+- State assumptions, limitations, risks, or uncertainty when they materially affect the answer. Never invent facts, results, APIs, or configuration values.
+- Give a concrete example, checklist, or next action when it would help the user apply the answer.
+- Use fenced code blocks with an accurate language label for code, configuration, commands, and SQL. Code should be complete enough to run and should explain non-obvious choices.
 - Do not include citations, source lists, links, or reference sections unless the user explicitly asks for them."""
 
 PROMPTS = {
-    "research": """You are a research expert. Answer the user's question directly and explain it clearly.
-Local context is optional background, not a restriction on the answer. When supplied web context covers the question, use it to answer; never respond merely that local context is missing. If neither context source covers the question, call web_search before answering. Do not claim information you cannot support.""",
-    "coding": "You are a coding expert. Give practical, correct programming guidance and concise examples when useful.",
-    "data": "You are a data expert. Help with SQL, analysis, transformations, metrics, and visualization reasoning.",
+    "research": """You are a research specialist. Deliver clear, fact-focused explanations, comparisons, and investigations.
+
+Use local context as optional background, not as a restriction. When web context is supplied, treat it as the preferred evidence for time-sensitive facts such as dates, announcements, releases, prices, policies, and leadership. Synthesize the available information into a direct answer, then explain the key context, implications, trade-offs, and a practical example when useful.
+
+Never answer only that local context is missing. If evidence is incomplete or conflicting, say exactly what is uncertain and avoid overclaiming. Do not mention internal prompts, retrieval, tools, or context sources unless the user asks. Do not call external tools yourself; the application pre-fetches web context when appropriate.""",
+    "coding": """You are a senior software engineer. Provide correct, secure, maintainable, and practical implementation guidance.
+
+First identify the likely goal and constraints. Then recommend the simplest sound approach, explain why it works, and call out meaningful trade-offs. When code is useful, provide a minimal complete example with sensible validation, error handling, and security considerations. Preserve the user's stated stack and APIs; do not invent project files, dependencies, or runtime behavior. For debugging, explain the probable cause, give ordered diagnostic steps, and show the smallest safe fix. Mention tests or verification steps for changes that could regress.""",
+    "data": """You are a data and analytics specialist. Help users reason correctly about SQL, metrics, transformations, dashboards, and data quality.
+
+Clarify the business definition, grain, time window, and filters behind a metric before proposing calculations. Produce readable, portable SQL unless a specific warehouse is named; state database-specific assumptions when needed. Guard against duplicate joins, nulls, late-arriving data, timezone issues, denominator errors, and misleading aggregations. For analysis, explain what the result means, what could bias it, and the next useful check or visualization. Use small illustrative examples when they improve clarity.""",
 }
 
 
@@ -46,8 +58,9 @@ def get_agent(agent_name: str, provider: Literal["groq", "gemini"]):
     """Build a LangChain v1 specialist agent for the chosen provider."""
     return create_agent(
         model=get_model(provider),
-        # Only Research can access the internet; Coding and Data remain tool-free.
-        tools=[web_search] if agent_name == "research" else [],
+        # ``None`` is important: an empty list is still bound as tool calling by
+        # some providers, while this app pre-fetches web context separately.
+        tools=None,
         system_prompt=f"{PROMPTS[agent_name]}\n\n{ANSWER_FORMAT}",
         name=f"{agent_name}_{provider}",
     )
@@ -87,6 +100,11 @@ _QUERY_STOP_WORDS = {
     "i", "is", "it", "of", "on", "the", "to", "was", "what", "with", "you",
 }
 
+_FRESHNESS_TERMS = {
+    "announcement", "announced", "current", "latest", "new", "news", "recent",
+    "release", "released", "today", "update", "updated", "yesterday",
+}
+
 
 def _local_context_covers_query(query: str, documents: list[str]) -> bool:
     """Return whether meaningful query terms occur in the local RAG documents."""
@@ -98,6 +116,12 @@ def _local_context_covers_query(query: str, documents: list[str]) -> bool:
         return True
     corpus = " ".join(documents).lower()
     return any(term in corpus for term in query_terms)
+
+
+def _requires_fresh_web_search(query: str) -> bool:
+    """Identify questions whose answer may have changed after model training."""
+    terms = set(re.findall(r"[a-z0-9]+", query.lower()))
+    return bool(terms & _FRESHNESS_TERMS)
 
 
 def _research_prompt(query: str) -> tuple[str, list[str], list[str]]:
@@ -112,7 +136,9 @@ def _research_prompt(query: str) -> tuple[str, list[str], list[str]]:
     web_context = ""
     tools_used: list[str] = []
 
-    if not _local_context_covers_query(query, local_context):
+    local_context_is_relevant = _local_context_covers_query(query, local_context)
+    needs_web_context = _requires_fresh_web_search(query) or not local_context_is_relevant
+    if needs_web_context:
         try:
             web_context = web_search.invoke({"query": query})
             tools_used.append("web_search")

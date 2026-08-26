@@ -7,4 +7,5 @@ langchain-google-genai>=4.0,<5.0
 langchain-groq>=1.0,<2.0
 langgraph>=1.0,<2.0
 pydantic-settings>=2.6
+tavily-python>=0.8
 uvicorn[standard]>=0.30

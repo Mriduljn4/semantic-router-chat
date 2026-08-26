@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     GROQ_MODEL: str = "groq/compound-mini"
     GROQ_INTENT_MODEL: str = "qwen/qwen3.6-27b"
     INTENT_CLASSIFIER_PROVIDER: str = "groq"
+    TAVILY_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3.5-flash"
     LLM_PRIMARY_PROVIDER: str = "groq"

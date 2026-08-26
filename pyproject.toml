@@ -9,7 +9,6 @@ description = "Lean semantic multi-agent router with local embeddings"
 requires-python = ">=3.11"
 dependencies = [
   "chromadb>=0.5",
-  "ddgs>=9.0",
   "deepeval>=1.0",
   "fastapi>=0.115",
   "google-genai>=1.0",
@@ -20,6 +19,7 @@ dependencies = [
   "langgraph>=1.0,<2.0",
   "pydantic-settings>=2.6",
   "sentence-transformers>=3.0",
+  "tavily-python>=0.8",
   "uvicorn[standard]>=0.30",
 ]
 

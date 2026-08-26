@@ -10,6 +10,8 @@ services:
     envVars:
       - key: GROQ_API_KEY
         sync: false
+      - key: TAVILY_API_KEY
+        sync: false
       - key: GROQ_MODEL
         value: groq/compound-mini
       - key: GROQ_INTENT_MODEL
