@@ -482,12 +482,13 @@ def _looks_like_reasoning(text: str) -> bool:
         for prefix in _REASONING_PREFIXES
     )
 
+
 async def astream_agent(
     agent_name: AgentName,
     query: str,
     conversation_id: str,
 ) -> AsyncIterator[dict[str, object]]:
-    """Stream an agent response while retaining conversation history."""
+    """Stream user-visible answer text with provider fallback before output."""
     prompt = query
     tools_used: list[str] = []
 
@@ -505,7 +506,8 @@ async def astream_agent(
     providers = _provider_order()
 
     for index, provider in enumerate(providers):
-        emitted_token = False
+        emitted_text = False
+        streamed_answer_parts: list[str] = []
 
         try:
             agent = get_agent(agent_name, provider)
@@ -531,11 +533,11 @@ async def astream_agent(
 
                 text = _message_text(message)
 
-                if not text or _looks_like_reasoning(text):
+                if not text:
                     continue
 
-                if not emitted_token:
-                    emitted_token = True
+                if not emitted_text:
+                    emitted_text = True
 
                     yield {
                         "type": "status",
@@ -548,12 +550,16 @@ async def astream_agent(
                         "tools_used": tools_used,
                     }
 
+                streamed_answer_parts.append(text)
+
                 yield {
                     "type": "token",
                     "text": text,
                 }
 
-            if emitted_token:
+            full_answer = "".join(streamed_answer_parts).strip()
+
+            if full_answer:
                 return
 
             raise RuntimeError(
@@ -563,9 +569,11 @@ async def astream_agent(
         except Exception as error:
             is_last_provider = index == len(providers) - 1
 
-            if is_last_provider or emitted_token:
+            # Never switch providers after content has already been sent.
+            # Otherwise the user receives two partial/conflicting answers.
+            if emitted_text or is_last_provider:
                 raise LLMProviderError(
-                    "Both configured LLM providers failed.",
+                    "LLM streaming failed.",
                     reason=_provider_error_reason(error),
                     attempts={
                         provider: _safe_provider_failure(error),
@@ -577,7 +585,6 @@ async def astream_agent(
                 provider,
                 exc_info=True,
             )
-
 
 def _provider_error_reason(error: Exception) -> str:
     """Map provider exceptions to safe API error categories."""
