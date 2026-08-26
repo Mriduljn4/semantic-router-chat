@@ -10,6 +10,8 @@ services:
     envVars:
       - key: GROQ_API_KEY
         sync: false
+      - key: GROQ_MODEL
+        value: groq/compound-mini
       - key: GROQ_INTENT_MODEL
         value: qwen/qwen3.6-27b
       - key: GEMINI_API_KEY
@@ -23,6 +25,6 @@ services:
       - key: EMBEDDING_BACKEND
         value: gemini
       - key: LLM_PRIMARY_PROVIDER
-        value: gemini
+        value: groq
       - key: GEMINI_MODEL
         value: gemini-3.5-flash

@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     )
 
     GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GROQ_MODEL: str = "groq/compound-mini"
     GROQ_INTENT_MODEL: str = "qwen/qwen3.6-27b"
     INTENT_CLASSIFIER_PROVIDER: str = "groq"
     GEMINI_API_KEY: str = ""

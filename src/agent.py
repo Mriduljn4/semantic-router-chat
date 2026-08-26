@@ -133,7 +133,7 @@ Question: {query}"""
 def _provider_error_reason(error: Exception) -> str:
     """Map provider exceptions to safe, actionable categories for API clients."""
     message = str(error).lower()
-    if "model" in message and ("not found" in message or "not available" in message):
+    if "model" in message and ("not found" in message or "not available" in message or "does not exist" in message):
         return "model_unavailable"
     if any(term in message for term in ("api key", "api_key", "unauthorized", "authentication", "permission denied")):
         return "authentication_failed"
