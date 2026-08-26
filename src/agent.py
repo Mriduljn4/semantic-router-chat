@@ -8,6 +8,9 @@ from typing import AsyncIterator, Literal
 from langchain.agents import create_agent
 from langchain_core.messages import BaseMessage
 
+from langchain_core.messages import AIMessageChunk, BaseMessage
+from langgraph.checkpoint.memory import InMemorySaver
+
 from src.chroma_store import get_research_docs_collection
 from src.config import get_settings
 from src.embeddings import embed_query
@@ -18,6 +21,7 @@ from src.web_search import web_search
 
 logger = logging.getLogger(__name__)
 
+checkpointer = InMemorySaver()
 
 ANSWER_FORMAT = """Produce a useful, professional answer for a chat interface.
 
@@ -203,12 +207,13 @@ class AgentResult:
 
 @lru_cache
 def get_agent(agent_name: str, provider: Literal["nvidia", "groq"]):
-    """Build a LangChain v1 specialist agent for the chosen provider."""
+    """Build a LangChain specialist agent with thread-scoped chat memory."""
     return create_agent(
         model=get_model(provider),
         tools=None,
-        system_prompt=f"{PROMPTS[agent_name]}\n\n{ANSWER_FORMAT}\n\n{SECURITY_RULES}",
+        system_prompt=f"{PROMPTS[agent_name]}\n\n{ANSWER_FORMAT}",
         name=f"{agent_name}_{provider}",
+        checkpointer=checkpointer,
     )
 
 
@@ -232,9 +237,20 @@ def _message_text(message: BaseMessage) -> str:
     return ""
 
 
-def _invoke_agent(agent, prompt: str) -> tuple[str, list[str]]:
-    """Invoke a LangChain agent and return final text plus any tools it called."""
-    result = agent.invoke({"messages": [{"role": "user", "content": prompt}]})
+def _invoke_agent(
+    agent,
+    prompt: str,
+    conversation_id: str,
+) -> tuple[str, list[str]]:
+    """Invoke an agent using persistent message history for one conversation."""
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": prompt}]},
+        config={
+            "configurable": {
+                "thread_id": conversation_id,
+            }
+        },
+    )
 
     tools_used = list(
         dict.fromkeys(
@@ -248,10 +264,9 @@ def _invoke_agent(agent, prompt: str) -> tuple[str, list[str]]:
     answer = _message_text(result["messages"][-1])
 
     if not answer.strip():
-        raise RuntimeError("Provider returned an empty visible response.")
+        raise RuntimeError("Provider returned an empty response.")
 
     return answer, tools_used
-
 
 def _provider_order() -> tuple[Literal["nvidia", "groq"], Literal["nvidia", "groq"]]:
     """Return the configured answer provider followed by its fallback."""
@@ -407,8 +422,9 @@ present potentially stale information as current. State this limitation briefly.
 async def astream_agent(
     agent_name: str,
     query: str,
+    conversation_id: str,
 ) -> AsyncIterator[dict[str, object]]:
-    """Yield user-visible model tokens using fallback only before output begins."""
+    """Stream an agent response while retaining conversation history."""
     prompt = query
     tools_used: list[str] = []
 
@@ -419,24 +435,26 @@ async def astream_agent(
             query,
         )
 
-    system_prompt = (
-        f"{PROMPTS[agent_name]}\n\n"
-        f"{ANSWER_FORMAT}\n\n"
-        f"{SECURITY_RULES}"
-    )
-
     providers = _provider_order()
 
     for index, provider in enumerate(providers):
         emitted_token = False
 
         try:
-            async for message in get_model(provider).astream(
-                [
-                    ("system", system_prompt),
-                    ("human", prompt),
-                ]
+            agent = get_agent(agent_name, provider)
+
+            async for message, metadata in agent.astream(
+                {"messages": [{"role": "user", "content": prompt}]},
+                config={
+                    "configurable": {
+                        "thread_id": conversation_id,
+                    }
+                },
+                stream_mode="messages",
             ):
+                if not isinstance(message, AIMessageChunk):
+                    continue
+
                 text = _message_text(message)
 
                 if not text:
@@ -444,19 +462,27 @@ async def astream_agent(
 
                 if not emitted_token:
                     emitted_token = True
-                    yield {"type": "status", "message": "Generating answer…"}
+
+                    yield {
+                        "type": "status",
+                        "message": "Generating answer…",
+                    }
+
                     yield {
                         "type": "start",
                         "provider": provider,
                         "tools_used": tools_used,
                     }
 
-                yield {"type": "token", "text": text}
+                yield {
+                    "type": "token",
+                    "text": text,
+                }
 
             if emitted_token:
                 return
 
-            raise RuntimeError("Provider returned an empty visible response.")
+            raise RuntimeError("Provider returned an empty response.")
 
         except Exception as error:
             is_last_provider = index == len(providers) - 1
@@ -475,7 +501,6 @@ async def astream_agent(
                 provider,
                 exc_info=True,
             )
-
 
 def _provider_error_reason(error: Exception) -> str:
     """Map provider exceptions to safe, actionable categories for API clients."""
@@ -524,7 +549,11 @@ def _safe_provider_failure(error: Exception) -> str:
     return f"{_provider_error_reason(error)} ({type(error).__name__})"
 
 
-def run_agent(agent_name: str, query: str) -> AgentResult:
+def run_agent(
+    agent_name: str,
+    query: str,
+    conversation_id: str,
+) -> AgentResult:
     """Run a specialist, adding RAG context for research and provider fallback."""
     context: list[str] = []
     prefetched_tools: list[str] = []
@@ -539,6 +568,7 @@ def run_agent(agent_name: str, query: str) -> AgentResult:
         answer, tools_used = _invoke_agent(
             get_agent(agent_name, primary_provider),
             prompt,
+            conversation_id,
         )
 
         return AgentResult(
@@ -562,6 +592,7 @@ def run_agent(agent_name: str, query: str) -> AgentResult:
             answer, tools_used = _invoke_agent(
                 get_agent(agent_name, fallback_provider),
                 prompt,
+                conversation_id,
             )
 
             return AgentResult(

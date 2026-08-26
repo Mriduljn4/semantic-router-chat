@@ -35,7 +35,12 @@ async def run_agent(state: QueryState) -> dict:
     """Run the selected LangChain specialist with the original guarded query."""
     # The specialist currently uses synchronous provider clients; isolate that work
     # so other API requests can continue while an LLM response is generated.
-    result = await asyncio.to_thread(execute_agent, state["routed_agent"], state["query"])
+    result = await asyncio.to_thread(
+        execute_agent,
+        agent_name=state["routed_agent"],
+        query=state["query"],
+        conversation_id=state["conversation_id"],
+    )
     return {
         "answer": result.answer,
         "llm_provider_used": result.provider_used,
@@ -63,7 +68,10 @@ def run_query(query: str) -> dict:
     }
 
 
-async def run_query_async(query: str) -> dict:
+async def run_query_async(
+    query: str,
+    conversation_id: str,
+) -> dict:
     """Asynchronously execute the graph for use by FastAPI request handlers."""
     state = await graph.ainvoke({"query": query})
     return {
