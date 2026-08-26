@@ -33,7 +33,7 @@ def get_model(provider: Literal["groq", "nvidia"]) -> BaseChatModel:
             api_key=settings.GROQ_API_KEY,
             temperature=0,
         )
-    return ChatNvidia(
+    return ChatNVIDIA(
         model=settings.NVIDIA_MODEL,
         api_key=settings.NVIDIA_API_KEY,
         temperature=0.5,
