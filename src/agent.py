@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 import logging
 import re
-from typing import Literal
+from typing import AsyncIterator, Literal
 
 from langchain.agents import create_agent
 from langchain_core.messages import BaseMessage
@@ -95,6 +95,11 @@ def _invoke_agent(agent, prompt: str) -> tuple[str, list[str]]:
     return _message_text(result["messages"][-1]), tools_used
 
 
+def _provider_order() -> tuple[Literal["groq", "gemini"], Literal["groq", "gemini"]]:
+    """Return the configured answer provider followed by its single fallback."""
+    return ("gemini", "groq") if get_settings().LLM_PRIMARY_PROVIDER == "gemini" else ("groq", "gemini")
+
+
 _QUERY_STOP_WORDS = {
     "a", "an", "and", "are", "be", "can", "do", "does", "explain", "for", "how",
     "i", "is", "it", "of", "on", "the", "to", "was", "what", "with", "you",
@@ -165,6 +170,48 @@ Important: This question needs current or externally verified information, but w
     return prompt, local_context, tools_used
 
 
+async def astream_agent(agent_name: str, query: str) -> AsyncIterator[dict[str, object]]:
+    """Yield actual model tokens, using fallback only before output begins.
+
+    The regular LangChain agent graph is used for complete responses. Streaming
+    uses the provider model directly because the specialists are tool-free and
+    this preserves token arrival instead of buffering a completed answer.
+    """
+    import asyncio
+
+    prompt = query
+    tools_used: list[str] = []
+    if agent_name == "research":
+        prompt, _context, tools_used = await asyncio.to_thread(_research_prompt, query)
+
+    system_prompt = f"{PROMPTS[agent_name]}\n\n{ANSWER_FORMAT}"
+    providers = _provider_order()
+    for index, provider in enumerate(providers):
+        emitted_token = False
+        try:
+            async for message in get_model(provider).astream(
+                [("system", system_prompt), ("human", prompt)]
+            ):
+                text = _message_text(message)
+                if not text:
+                    continue
+                if not emitted_token:
+                    emitted_token = True
+                    yield {"type": "start", "provider": provider, "tools_used": tools_used}
+                yield {"type": "token", "text": text}
+            if emitted_token:
+                return
+            raise RuntimeError("Provider returned an empty response.")
+        except Exception as error:
+            if emitted_token or index == len(providers) - 1:
+                raise LLMProviderError(
+                    "Both configured LLM providers failed.",
+                    reason=_provider_error_reason(error),
+                    attempts={provider: _safe_provider_failure(error)},
+                ) from error
+            logger.warning("Streaming %s failed before output; trying fallback.", provider, exc_info=True)
+
+
 def _provider_error_reason(error: Exception) -> str:
     """Map provider exceptions to safe, actionable categories for API clients."""
     message = str(error).lower()
@@ -195,9 +242,7 @@ def run_agent(agent_name: str, query: str) -> AgentResult:
         # RAG is restricted to the research specialist to avoid irrelevant context.
         prompt, context, prefetched_tools = _research_prompt(query)
 
-    primary = get_settings().LLM_PRIMARY_PROVIDER
-    providers: tuple[Literal["groq", "gemini"], Literal["groq", "gemini"]]
-    providers = ("gemini", "groq") if primary == "gemini" else ("groq", "gemini")
+    providers = _provider_order()
 
     try:
         answer, tools_used = _invoke_agent(get_agent(agent_name, providers[0]), prompt)
