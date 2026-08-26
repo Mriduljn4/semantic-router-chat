@@ -130,7 +130,7 @@ class AgentResult:
     """Normalized output returned by a specialist agent invocation."""
 
     answer: str
-    provider_used: Literal["groq", "nvidia"]
+    provider_used: Literal["nvidia","groq"]
     context: list[str]
     tools_used: list[str]
 

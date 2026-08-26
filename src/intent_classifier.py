@@ -34,7 +34,7 @@ def get_intent_classifier() -> ChatGroq:
     return ChatGroq(
         model=settings.GROQ_INTENT_MODEL,
         api_key=settings.GROQ_API_KEY,
-        temperature=0,
+        temperature=0.3,
     )
 
 
