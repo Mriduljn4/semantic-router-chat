@@ -26,7 +26,7 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
-ConversationAgent = Literal["research", "coding", "data"]
+ConversationAgent = Literal["general", "research", "coding", "data"]
 
 
 class QueryRequest(BaseModel):

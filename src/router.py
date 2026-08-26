@@ -7,40 +7,75 @@ from src.config import get_settings
 from src.embeddings import embed_query
 from src.intent_classifier import classify_intent
 
-AGENTS = ("research", "coding", "data")
+
+AgentName = Literal["general", "research", "coding", "data"]
+ProviderName = Literal["groq", "nvidia"]
+
+AGENTS: tuple[AgentName, ...] = (
+    "general",
+    "research",
+    "coding",
+    "data",
+)
 
 
 @dataclass
 class RoutingDecision:
-    """The Groq-selected specialist and informational semantic similarity scores."""
+    """Selected specialist and informational capability similarity scores."""
 
-    routed_agent: Literal["research", "coding", "data"]
+    routed_agent: AgentName
     router_scores: dict[str, float]
-    classifier_used: Literal["groq"]
+    classifier_used: ProviderName
 
 
 def route(query: str) -> RoutingDecision:
-    """Classify with Groq and calculate Chroma similarity scores for visibility.
-
-    Chroma returns cosine distances for the nearest capability examples. Because
-    the collection uses cosine space, $1 - distance$ is the cosine similarity.
-    Profiles are grouped by agent and each agent receives the mean similarity.
-    These scores are displayed in the UI but never select the specialist.
     """
-    # Intent classification and display-only Chroma scoring are independent.
-    # Run them together so routing latency is the slower operation, not both.
+    Classify intent with Groq and use NVIDIA only as a fallback.
+
+    Chroma scores are informational only. They are displayed in the UI but do
+    not select the specialist because semantic similarity alone is unreliable
+    for short, conversational, or follow-up messages.
+    """
     with ThreadPoolExecutor(max_workers=1) as executor:
-        classifier_result = executor.submit(classify_intent, query)
+        classification_future = executor.submit(classify_intent, query)
+
         result = get_capabilities_collection().query(
-            query_embeddings=[embed_query(query)], n_results=get_settings().ROUTER_TOP_K,
+            query_embeddings=[embed_query(query)],
+            n_results=get_settings().ROUTER_TOP_K,
             include=["metadatas", "distances"],
         )
-        # Intent selection is intentionally Groq-only. Do not silently change
-        # the selected agent when the classifier is unavailable.
-        routed_agent = classifier_result.result()
-    grouped = {agent: [] for agent in AGENTS}
-    for metadata, distance in zip(result["metadatas"][0], result["distances"][0]):
-        # Convert Chroma cosine distance into a higher-is-better similarity score.
-        grouped[metadata["agent"]].append(1 - float(distance))
-    scores = {agent: (sum(values) / len(values) if values else 0.0) for agent, values in grouped.items()}
-    return RoutingDecision(routed_agent, scores, "groq")
+
+        classification = classification_future.result()
+
+    grouped_scores: dict[str, list[float]] = {
+        agent: []
+        for agent in AGENTS
+    }
+
+    metadatas = result.get("metadatas", [[]])
+    distances = result.get("distances", [[]])
+
+    for metadata, distance in zip(metadatas[0], distances[0]):
+        agent_name = metadata.get("agent")
+
+        if agent_name not in grouped_scores:
+            continue
+
+        grouped_scores[agent_name].append(
+            1 - float(distance)
+        )
+
+    router_scores = {
+        agent: (
+            sum(scores) / len(scores)
+            if scores
+            else 0.0
+        )
+        for agent, scores in grouped_scores.items()
+    }
+
+    return RoutingDecision(
+        routed_agent=classification.intent,
+        router_scores=router_scores,
+        classifier_used=classification.provider_used,
+    )

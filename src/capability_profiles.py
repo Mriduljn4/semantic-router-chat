@@ -14,4 +14,5 @@ CAPABILITY_PROFILES = {
         "calculate conversion rate", "design a data pipeline", "explain a dashboard", "transform CSV data",
         "perform exploratory data analysis",
     ],
+    
 }
