@@ -2,7 +2,6 @@ from functools import lru_cache
 from typing import Literal
 
 from langchain_core.language_models import BaseChatModel
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
 
@@ -31,6 +30,10 @@ def get_model(provider: Literal["nvidia"]) -> BaseChatModel:
         return ChatNVIDIA(
             model=settings.NVIDIA_MODEL,
             api_key=settings.NVIDIA_API_KEY,
-            temperature=0.5,
+            temperature=0.3,
         )
-   
+    return ChatGroq(
+        model=settings.GROQ_MODEL,
+        api_key=settings.GROQ_API_KEY,
+        temperature=0.3,
+    )
