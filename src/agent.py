@@ -183,6 +183,16 @@ _UNTRUSTED_RAG_MARKERS = (
     "do not follow previous instructions",
 )
 
+_REASONING_PREFIXES = (
+    "here's a thinking process:",
+    "here’s a thinking process:",
+    "analyze user input:",
+    "analysis:",
+    "let me think",
+    "identify key requirements",
+    "identify the core question",
+)
+
 
 @dataclass
 class AgentResult:
@@ -463,6 +473,15 @@ present potentially stale information as current. State this limitation briefly.
     return prompt, local_context, tools_used
 
 
+def _looks_like_reasoning(text: str) -> bool:
+    """Identify common reasoning/planning text accidentally emitted by a model."""
+    normalized = text.strip().lower()
+
+    return any(
+        normalized.startswith(prefix)
+        for prefix in _REASONING_PREFIXES
+    )
+
 async def astream_agent(
     agent_name: AgentName,
     query: str,
@@ -512,7 +531,7 @@ async def astream_agent(
 
                 text = _message_text(message)
 
-                if not text:
+                if not text or _looks_like_reasoning(text):
                     continue
 
                 if not emitted_token:

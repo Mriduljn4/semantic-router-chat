@@ -25,7 +25,32 @@ def validate_input(query: str) -> str:
         raise GuardrailViolation("This request attempts to override protected agent instructions.")
     return normalized
 
+import re
 
-def sanitize_output(answer: str) -> str:
-    """Prevent API-like secrets from being returned to the chat client or traces."""
-    return _SECRET_PATTERN.sub("[redacted secret]", answer)
+
+def remove_reasoning_leak(text: str) -> str:
+    """Remove common accidental reasoning prefixes from model output."""
+    patterns = (
+        r"^here(?:'|’)s a thinking process:.*?(?=^## |\A(?![\s\S]))",
+        r"^analysis:.*?(?=^## |\A(?![\s\S]))",
+        r"^let me think.*?(?=^## |\A(?![\s\S]))",
+        r"^analyze user input:.*?(?=^## |\A(?![\s\S]))",
+    )
+
+    cleaned = text.strip()
+
+    for pattern in patterns:
+        cleaned = re.sub(
+            pattern,
+            "",
+            cleaned,
+            flags=re.IGNORECASE | re.DOTALL | re.MULTILINE,
+        ).strip()
+
+    return cleaned
+
+def sanitize_output(text: str) -> str:
+    cleaned = remove_reasoning_leak(text)
+
+    # Keep your existing sanitization logic below.
+    return cleaned
