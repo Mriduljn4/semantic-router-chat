@@ -9,7 +9,6 @@ description = "Lean semantic multi-agent router with local embeddings"
 requires-python = ">=3.11"
 dependencies = [
   "chromadb>=0.5",
-  "deepeval>=1.0",
   "fastapi>=0.115",
   "google-genai>=1.0",
   "groq>=0.11",

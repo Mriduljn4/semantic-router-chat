@@ -147,8 +147,9 @@ def _research_prompt(query: str) -> tuple[str, list[str], list[str]]:
     if needs_web_context:
         try:
             web_context = web_search.invoke({"query": query})
-            tools_used.append("web_search")
             web_search_status = "available"
+            if web_context != "No web results found.":
+                tools_used.append("web_search")
         except Exception:
             # The agent still has the web-search tool and can retry if needed.
             web_search_status = "unavailable"
@@ -182,6 +183,7 @@ async def astream_agent(agent_name: str, query: str) -> AsyncIterator[dict[str, 
     prompt = query
     tools_used: list[str] = []
     if agent_name == "research":
+        yield {"type": "status", "message": "Searching research sources…"}
         prompt, _context, tools_used = await asyncio.to_thread(_research_prompt, query)
 
     system_prompt = f"{PROMPTS[agent_name]}\n\n{ANSWER_FORMAT}"
@@ -197,6 +199,7 @@ async def astream_agent(agent_name: str, query: str) -> AsyncIterator[dict[str, 
                     continue
                 if not emitted_token:
                     emitted_token = True
+                    yield {"type": "status", "message": "Generating answer…"}
                     yield {"type": "start", "provider": provider, "tools_used": tools_used}
                 yield {"type": "token", "text": text}
             if emitted_token:

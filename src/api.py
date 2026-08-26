@@ -81,7 +81,7 @@ async def query_stream(request: QueryRequest) -> StreamingResponse:
         return f"event: {event_name}\ndata: {json.dumps(payload)}\n\n"
 
     async def generate():
-        yield event("status", {"message": "Understanding your intent…"})
+        yield event("status", {"message": "Routing your question…"})
         try:
             decision = await asyncio.to_thread(decide_route, request.query)
             yield event("status", {"message": f"{decision.routed_agent.title()} specialist is preparing an answer…"})
@@ -97,6 +97,8 @@ async def query_stream(request: QueryRequest) -> StreamingResponse:
                             "tools_used": stream_event["tools_used"],
                         },
                     )
+                elif stream_event["type"] == "status":
+                    yield event("status", {"message": stream_event["message"]})
                 elif stream_event["type"] == "token":
                     yield event("answer_chunk", {"text": stream_event["text"]})
             yield event("answer_complete", {})

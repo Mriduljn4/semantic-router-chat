@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Literal
 
@@ -26,13 +27,17 @@ def route(query: str) -> RoutingDecision:
     Profiles are grouped by agent and each agent receives the mean similarity.
     These scores are displayed in the UI but never select the specialist.
     """
-    # Intent selection is intentionally Groq-only. Do not silently change the
-    # selected agent when the classifier is unavailable.
-    routed_agent = classify_intent(query)
-    result = get_capabilities_collection().query(
-        query_embeddings=[embed_query(query)], n_results=get_settings().ROUTER_TOP_K,
-        include=["metadatas", "distances"],
-    )
+    # Intent classification and display-only Chroma scoring are independent.
+    # Run them together so routing latency is the slower operation, not both.
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        classifier_result = executor.submit(classify_intent, query)
+        result = get_capabilities_collection().query(
+            query_embeddings=[embed_query(query)], n_results=get_settings().ROUTER_TOP_K,
+            include=["metadatas", "distances"],
+        )
+        # Intent selection is intentionally Groq-only. Do not silently change
+        # the selected agent when the classifier is unavailable.
+        routed_agent = classifier_result.result()
     grouped = {agent: [] for agent in AGENTS}
     for metadata, distance in zip(result["metadatas"][0], result["distances"][0]):
         # Convert Chroma cosine distance into a higher-is-better similarity score.
