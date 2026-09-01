@@ -49,7 +49,7 @@ class QueryResponse(BaseModel):
     conversation_id: UUID
     routed_agent: ConversationAgent
     router_scores: dict[str, float]
-    intent_classifier: Literal["groq"]
+    intent_classifier: Literal["rules", "groq", "nvidia"]
     llm_provider_used: Literal["groq", "nvidia"]
     tools_used: list[str]
 
@@ -137,6 +137,7 @@ async def query_stream(request: QueryRequest) -> StreamingResponse:
             decision = await asyncio.to_thread(
                 decide_route,
                 request.query,
+                conversation_id,
             )
 
             yield event(

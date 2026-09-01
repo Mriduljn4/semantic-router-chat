@@ -12,6 +12,7 @@ class QueryState(TypedDict):
     """State passed between the deterministic router and specialist graph nodes."""
 
     query: str
+    conversation_id: str
     routed_agent: str
     router_scores: dict[str, float]
     intent_classifier: str
@@ -23,7 +24,11 @@ class QueryState(TypedDict):
 async def route(state: QueryState) -> dict:
     """Populate the chosen specialist and the intent-classifier similarity scores."""
     # Chroma's Python client is synchronous, so run it outside the ASGI event loop.
-    decision = await asyncio.to_thread(decide_route, state["query"])
+    decision = await asyncio.to_thread(
+        decide_route,
+        state["query"],
+        state["conversation_id"],
+    )
     return {
         "routed_agent": decision.routed_agent,
         "router_scores": decision.router_scores,
@@ -59,9 +64,9 @@ _builder.add_edge("run_agent", END)
 graph = _builder.compile()
 
 
-def run_query(query: str) -> dict:
+def run_query(query: str, conversation_id: str = "default") -> dict:
     """Execute the route → specialist LangGraph workflow and return API fields."""
-    state = graph.invoke({"query": query})
+    state = graph.invoke({"query": query, "conversation_id": conversation_id})
     return {
         key: state[key]
         for key in ("answer", "routed_agent", "router_scores", "intent_classifier", "llm_provider_used", "tools_used")
@@ -73,7 +78,9 @@ async def run_query_async(
     conversation_id: str,
 ) -> dict:
     """Asynchronously execute the graph for use by FastAPI request handlers."""
-    state = await graph.ainvoke({"query": query})
+    state = await graph.ainvoke(
+        {"query": query, "conversation_id": conversation_id}
+    )
     return {
         key: state[key]
         for key in ("answer", "routed_agent", "router_scores", "intent_classifier", "llm_provider_used", "tools_used")

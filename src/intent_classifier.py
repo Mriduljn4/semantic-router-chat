@@ -1,5 +1,6 @@
-"""Intent classification with Groq primary and NVIDIA fallback."""
+"""Intent classification with deterministic heuristics and LLM fallback."""
 
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Literal
@@ -11,6 +12,7 @@ from src.llm import LLMProviderError, get_model
 
 
 Intent = Literal["general", "research", "coding", "data"]
+ClassifierName = Literal["rules", "groq", "nvidia"]
 ProviderName = Literal["groq", "nvidia"]
 
 
@@ -19,7 +21,7 @@ class IntentResult:
     """Validated intent selection plus the provider that produced it."""
 
     intent: Intent
-    provider_used: ProviderName
+    provider_used: ClassifierName
 
 
 class IntentClassification(BaseModel):
@@ -59,6 +61,52 @@ Rules:
 - Do not answer the user.
 - Do not add explanations.
 """
+
+
+def heuristic_intent(query: str) -> Intent | None:
+    """Return an intent only when explicit lexical rules are unambiguous."""
+    normalized = " ".join(query.casefold().split())
+    if not normalized:
+        return "general"
+
+    if re.fullmatch(
+        r"(?:hi|hello|hey|thanks|thank you|good (?:morning|afternoon|evening)"
+        r"|how are you|who am i|what is my name)[.!? ]*",
+        normalized,
+    ) or re.match(r"^my name is\b", normalized):
+        return "general"
+
+    # Explicit SQL and analytics language wins over generic words such as
+    # "write", "function", or "pipeline".
+    if re.search(
+        r"\b(?:sql|dataset|dataframe|pandas|analytics|metric|dashboard|etl|"
+        r"data pipeline|data visualization|group by|window function|monthly active users)\b",
+        normalized,
+    ):
+        return "data"
+
+    if re.search(
+        r"\b(?:python|javascript|typescript|java|c#|fastapi|flask|react|pydantic|"
+        r"sqlalchemy|httpx|npm|git|docker|kubernetes)\b",
+        normalized,
+    ) or re.search(
+        r"\b(?:write|create|build|generate|implement|fix|debug|refactor|test)\b"
+        r".*\b(?:code|function|class|method|api|endpoint|route|script|component|"
+        r"handler|service|bug|error|exception|test)\b",
+        normalized,
+    ):
+        return "coding"
+
+    if re.search(
+        r"^(?:what|who|when|where|why|how)\b|\b(?:explain|compare|latest|news|"
+        r"history|research|overview|difference between|recommend)\b",
+        normalized,
+    ):
+        return "research"
+
+    # Ambiguous and conversational follow-ups are delegated to the model,
+    # which can use the conversation history maintained by the specialist.
+    return None
 
 
 @lru_cache
@@ -108,12 +156,11 @@ def _classify_with_provider(
 
 
 def classify_intent(query: str) -> IntentResult:
-    """
-    Classify with Groq first and use NVIDIA only when Groq fails.
+    """Use a deterministic short-circuit for common prompts before LLM fallback."""
+    heuristic = heuristic_intent(query)
+    if heuristic is not None:
+        return IntentResult(intent=heuristic, provider_used="rules")
 
-    Both providers use the same schema and classification prompt so that route
-    labels are consistent regardless of fallback.
-    """
     providers: tuple[ProviderName, ...] = ("groq", "nvidia")
     failures: dict[str, str] = {}
 

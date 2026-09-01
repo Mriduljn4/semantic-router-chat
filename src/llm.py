@@ -23,7 +23,7 @@ class LLMProviderError(RuntimeError):
 
 
 @lru_cache
-def get_model(provider: Literal["nvidia"]) -> BaseChatModel:
+def get_model(provider: Literal["groq", "nvidia"]) -> BaseChatModel:
     """Return a cached LangChain v1 chat model for a configured provider."""
     settings = get_settings()
     if provider == "nvidia":
@@ -32,8 +32,10 @@ def get_model(provider: Literal["nvidia"]) -> BaseChatModel:
             api_key=settings.NVIDIA_API_KEY,
             temperature=0.3,
         )
-    return ChatGroq(
-        model=settings.GROQ_MODEL,
-        api_key=settings.GROQ_API_KEY,
-        temperature=0.3,
-    )
+    if provider == "groq":
+        return ChatGroq(
+            model=settings.GROQ_MODEL,
+            api_key=settings.GROQ_API_KEY,
+            temperature=0.3,
+        )
+    raise ValueError(f"Unsupported LLM provider: {provider}")
