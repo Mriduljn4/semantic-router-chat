@@ -3,7 +3,7 @@ from typing import Literal
 
 from langchain_core.language_models import BaseChatModel
 from langchain_groq import ChatGroq
-from langchain_nvidia_ai_endpoints import ChatNVIDIA
+from langchain_openai import ChatOpenAI
 
 from src.config import get_settings
 
@@ -23,13 +23,14 @@ class LLMProviderError(RuntimeError):
 
 
 @lru_cache
-def get_model(provider: Literal["groq", "nvidia"]) -> BaseChatModel:
+def get_model(provider: Literal["groq", "openrouter"]) -> BaseChatModel:
     """Return a cached LangChain v1 chat model for a configured provider."""
     settings = get_settings()
-    if provider == "nvidia":
-        return ChatNVIDIA(
-            model=settings.NVIDIA_MODEL,
-            api_key=settings.NVIDIA_API_KEY,
+    if provider == "openrouter":
+        return ChatOpenAI(
+            model=settings.OPENROUTER_MODEL,
+            api_key=settings.OPENROUTER_API_KEY,
+            base_url="https://openrouter.ai/api/v1",
             temperature=0.3,
         )
     if provider == "groq":

@@ -43,7 +43,7 @@ class RoutingAndCodingTests(unittest.TestCase):
             "routed_agent": "coding",
             "router_scores": {},
             "intent_classifier": "rules",
-            "llm_provider_used": "nvidia",
+            "llm_provider_used": "openrouter",
             "tools_used": [],
         }
 

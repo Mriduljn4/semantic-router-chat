@@ -49,8 +49,8 @@ class QueryResponse(BaseModel):
     conversation_id: UUID
     routed_agent: ConversationAgent
     router_scores: dict[str, float]
-    intent_classifier: Literal["rules", "groq", "nvidia"]
-    llm_provider_used: Literal["groq", "nvidia"]
+    intent_classifier: Literal["rules", "groq", "openrouter"]
+    llm_provider_used: Literal["groq", "openrouter"]
     tools_used: list[str]
 
 

@@ -12,8 +12,8 @@ from src.llm import LLMProviderError, get_model
 
 
 Intent = Literal["general", "research", "coding", "data"]
-ClassifierName = Literal["rules", "groq", "nvidia"]
-ProviderName = Literal["groq", "nvidia"]
+ClassifierName = Literal["rules", "groq", "openrouter"]
+ProviderName = Literal["groq", "openrouter"]
 
 
 @dataclass(frozen=True)
@@ -32,34 +32,28 @@ class IntentClassification(BaseModel):
     )
 
 
-CLASSIFIER_PROMPT = """Classify the user's request into exactly one intent.
+CLASSIFIER_PROMPT = """You are an expert request router.
+Your only job is to classify the user's request into exactly one of the four intents below.
 
 Allowed intents:
-- general: greetings, introductions, casual conversation, thank-you messages,
-  memory-based follow-ups, simple conversational questions, and messages that
-  do not need research, code, SQL, analytics, or data-pipeline work.
-- research: factual explanations, named people, companies, products, events,
-  history, news, current information, comparisons, investigations, and
-  recommendations that require external knowledge.
-- coding: programming, source code, debugging, implementation, APIs,
-  software architecture, testing, deployment, and developer tooling.
-- data: SQL, datasets, analytics, metrics, dashboards, transformations,
-  statistics, visualizations, data engineering, ETL, and data pipelines.
+- general: Greetings, introductions, casual conversation, thank-you messages, simple memory-based follow-ups, and messages that do NOT require research, code, SQL, or data-pipeline work.
+- research: Factual explanations, information about named people/companies/products, history, current events/news, comparisons, deep-dive investigations, and recommendations requiring external knowledge.
+- coding: Programming, source code creation/modification, debugging, APIs, software architecture, testing, deployment, and developer tooling.
+- data: SQL queries, dataset manipulation, analytics, metrics definitions, dashboards, data transformations, statistics, visualizations, data engineering, ETL, and data pipelines.
 
 Routing examples:
 - "Hi" -> general
 - "My name is Mridul" -> general
-- "What is my name?" -> general
-- "Thank you" -> general
 - "What is Amazon Bedrock?" -> research
 - "Compare AWS and Azure" -> research
 - "Fix this FastAPI error" -> coding
 - "Write a SQL query for monthly revenue" -> data
 
 Rules:
-- Return exactly one intent.
-- Do not answer the user.
-- Do not add explanations.
+- You must return exactly one intent string.
+- Do not answer the user's question.
+- Do not add any explanations, introductory text, or markdown formatting.
+- Only output the exact name of the intent.
 """
 
 
@@ -161,7 +155,7 @@ def classify_intent(query: str) -> IntentResult:
     if heuristic is not None:
         return IntentResult(intent=heuristic, provider_used="rules")
 
-    providers: tuple[ProviderName, ...] = ("groq", "nvidia")
+    providers: tuple[ProviderName, ...] = ("groq",)
     failures: dict[str, str] = {}
 
     for provider in providers:

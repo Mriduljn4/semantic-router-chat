@@ -11,7 +11,7 @@ from src.intent_classifier import IntentResult, classify_intent, heuristic_inten
 
 
 AgentName = Literal["general", "research", "coding", "data"]
-ClassifierName = Literal["rules", "groq", "nvidia"]
+ClassifierName = Literal["rules", "groq", "openrouter"]
 
 AGENTS: tuple[AgentName, ...] = (
     "general",
@@ -60,7 +60,7 @@ class RoutingDecision:
 
 def route(query: str, conversation_id: str | None = None) -> RoutingDecision:
     """
-    Classify intent with Groq and use NVIDIA only as a fallback.
+    Classify intent using heuristic rules or Groq LLM.
 
     Chroma scores are informational only. They are displayed in the UI but do
     not select the specialist because semantic similarity alone is unreliable
