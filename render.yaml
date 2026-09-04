@@ -16,17 +16,22 @@ services:
         value: groq/compound-mini
       - key: GROQ_INTENT_MODEL
         value: qwen/qwen3.6-27b
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: LANGSMITH_TRACING
-        value: "true"
-      - key: LANGSMITH_API_KEY
-        sync: false
-      - key: LANGSMITH_PROJECT
-        value: semantic-router-chat
-      - key: EMBEDDING_BACKEND
-        value: gemini
+      - key: INTENT_CLASSIFIER_PROVIDER
+        value: groq
       - key: LLM_PRIMARY_PROVIDER
         value: groq
-      - key: GEMINI_MODEL
-        value: gemini-3.5-flash
+      - key: TAVILY_CACHE_TTL_SECONDS
+        value: "600"
+      - key: EMBEDDING_MODEL_NAME
+        value: BAAI/bge-small-en-v1.5
+      # Hashing keeps the free Render instance within its memory limit.
+      - key: EMBEDDING_BACKEND
+        value: hashing
+      - key: CHROMA_PERSIST_DIR
+        value: ./chroma_data
+      - key: ROUTER_TOP_K
+        value: "6"
+      - key: LANGSMITH_TRACING
+        value: "false"
+      - key: LANGSMITH_PROJECT
+        value: semantic-router-chat

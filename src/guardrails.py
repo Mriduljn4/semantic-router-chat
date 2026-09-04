@@ -12,8 +12,6 @@ _INJECTION_PATTERNS = (
     r"\b(reveal|show|print|repeat) (the )?(system|developer) prompt\b",
     r"\bdisregard (all |any |the )?(previous|prior) instructions?\b",
 )
-# Match recognizable provider-key prefixes without storing or logging the values.
-_SECRET_PATTERN = re.compile(r"(?:AIza[\w-]{20,}|gsk_[\w-]{20,}|lsv2_[\w-]{20,})")
 
 
 def validate_input(query: str) -> str:
@@ -24,8 +22,6 @@ def validate_input(query: str) -> str:
     if any(re.search(pattern, normalized, flags=re.IGNORECASE) for pattern in _INJECTION_PATTERNS):
         raise GuardrailViolation("This request attempts to override protected agent instructions.")
     return normalized
-
-import re
 
 
 def remove_reasoning_leak(text: str) -> str:

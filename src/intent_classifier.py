@@ -81,12 +81,20 @@ def heuristic_intent(query: str) -> Intent | None:
 
     if re.search(
         r"\b(?:python|javascript|typescript|java|c#|fastapi|flask|react|pydantic|"
-        r"sqlalchemy|httpx|npm|git|docker|kubernetes)\b",
+        r"sqlalchemy|httpx|npm|git|docker|kubernetes|restapi|rest api|"
+        r"api design|api endpoint|web api)\b",
         normalized,
     ) or re.search(
         r"\b(?:write|create|build|generate|implement|fix|debug|refactor|test)\b"
         r".*\b(?:code|function|class|method|api|endpoint|route|script|component|"
         r"handler|service|bug|error|exception|test)\b",
+        normalized,
+    ):
+        return "coding"
+
+    if re.search(
+        r"\b(?:design|architect|architecture|structure)\b.*\b(?:rest|restapi|"
+        r"rest api|api|endpoint|web service)\b",
         normalized,
     ):
         return "coding"
@@ -106,7 +114,12 @@ def heuristic_intent(query: str) -> Intent | None:
 @lru_cache
 def get_intent_model(provider: ProviderName):
     """Return the configured provider model for intent classification."""
-    return get_model(provider)
+    model_name = (
+        get_settings().GROQ_INTENT_MODEL
+        if provider == "groq"
+        else None
+    )
+    return get_model(provider, model_name)
 
 
 def _validate_intent_result(result: object) -> Intent:

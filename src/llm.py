@@ -23,19 +23,22 @@ class LLMProviderError(RuntimeError):
 
 
 @lru_cache
-def get_model(provider: Literal["groq", "openrouter"]) -> BaseChatModel:
+def get_model(
+    provider: Literal["groq", "openrouter"],
+    model_name: str | None = None,
+) -> BaseChatModel:
     """Return a cached LangChain v1 chat model for a configured provider."""
     settings = get_settings()
     if provider == "openrouter":
         return ChatOpenAI(
-            model=settings.OPENROUTER_MODEL,
+            model=model_name or settings.OPENROUTER_MODEL,
             api_key=settings.OPENROUTER_API_KEY,
             base_url="https://openrouter.ai/api/v1",
             temperature=0.3,
         )
     if provider == "groq":
         return ChatGroq(
-            model=settings.GROQ_MODEL,
+            model=model_name or settings.GROQ_MODEL,
             api_key=settings.GROQ_API_KEY,
             temperature=0.3,
         )

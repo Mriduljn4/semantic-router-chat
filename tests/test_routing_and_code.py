@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -19,6 +20,7 @@ class RoutingAndCodingTests(unittest.TestCase):
             "I am getting a FastAPI exception": "coding",
             "Build a React login component": "coding",
             "Debug this API handler": "coding",
+            "How to design a restapi": "coding",
             "Create a dashboard for conversion metrics": "data",
             "Compare AWS and Azure": "research",
             "hello": "general",
@@ -48,7 +50,7 @@ class RoutingAndCodingTests(unittest.TestCase):
         }
 
         with patch("src.graph.graph.ainvoke", new=AsyncMock(return_value=state)) as invoke:
-            result = __import__("asyncio").run(run_query_async("fix it", "conversation-42"))
+            result = asyncio.run(run_query_async("fix it", "conversation-42"))
 
         invoke.assert_awaited_once_with(
             {"query": "fix it", "conversation_id": "conversation-42"}

@@ -203,6 +203,8 @@ function buildMetadata(payload) {
   const scores = Object.entries(
     payload.router_scores || {},
   )
+    .filter(([, score]) => Number(score) > 0)
+    .sort(([, first], [, second]) => Number(second) - Number(first))
     .map(
       ([agent, score]) =>
         `${agent} ${Math.round(Number(score) * 100)}%`,
@@ -210,16 +212,22 @@ function buildMetadata(payload) {
     .join(" · ");
 
   const toolStatus = payload.tools_used?.length
-    ? ` · tools: ${payload.tools_used.join(", ")}`
+    ? ` · Tools: ${payload.tools_used.join(", ")}`
     : "";
 
   const metadata = [
-    payload.routed_agent,
-    payload.intent_classifier
-      ? `${payload.intent_classifier} intent`
+    payload.routed_agent
+      ? `Selected: ${payload.routed_agent}`
       : "",
-    payload.llm_provider_used,
-    scores,
+    payload.intent_classifier
+      ? `Intent: ${payload.intent_classifier}`
+      : "",
+    payload.llm_model_used
+      ? `Model: ${payload.llm_model_used}`
+      : payload.llm_provider_used
+        ? `Provider: ${payload.llm_provider_used}`
+        : "",
+    scores ? `Match signals: ${scores}` : "",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -285,6 +293,7 @@ function renderStreamEvent(
   }
 
   if (eventName === "error") {
+    streamState.hasError = true;
     const attempts = Object.entries(payload.attempts || {})
       .map(
         ([provider, reason]) =>
@@ -383,7 +392,7 @@ async function submitQuery(value) {
       }
     }
 
-    if (!streamState.answer.trim()) {
+    if (!streamState.hasError && !streamState.answer.trim()) {
       updateMessage(
         pending,
         "The server completed the request without returning answer text.",

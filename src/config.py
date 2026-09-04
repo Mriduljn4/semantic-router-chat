@@ -35,7 +35,10 @@ class Settings(BaseSettings):
 
     @property
     def chroma_path(self) -> Path:
-        return Path(self.CHROMA_PERSIST_DIR)
+        path = Path(self.CHROMA_PERSIST_DIR)
+        if path.is_absolute():
+            return path
+        return (Path(__file__).resolve().parent.parent / path).resolve()
 
 
 @lru_cache

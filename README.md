@@ -47,7 +47,10 @@ Example request:
 
 ## Deployment
 
-`render.yaml` contains the free Render deployment configuration. Add `GROQ_API_KEY` and `TAVILY_API_KEY` in Render before deploying.
+`render.yaml` contains the free Render deployment configuration. Render runs the
+build, seeds Chroma automatically, and supplies all non-secret settings from the
+Blueprint. Only `GROQ_API_KEY` and `TAVILY_API_KEY` must be entered as secrets;
+third-party credentials cannot be generated safely by Render or committed to Git.
 
 ## Lightweight evaluation
 

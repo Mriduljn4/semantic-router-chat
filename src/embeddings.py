@@ -52,7 +52,10 @@ def embed_query(text: str) -> list[float]:
         return _hash_embedding(text)
     if backend == "gemini":
         return _gemini_embeddings([text], "RETRIEVAL_QUERY")[0]
-    return _model().encode(text, normalize_embeddings=True).tolist()
+    try:
+        return _model().encode(text, normalize_embeddings=True).tolist()
+    except (ModuleNotFoundError, ImportError):
+        return _hash_embedding(text)
 
 
 def embed_documents(texts: list[str]) -> list[list[float]]:
@@ -62,7 +65,10 @@ def embed_documents(texts: list[str]) -> list[list[float]]:
         return [_hash_embedding(text) for text in texts]
     if backend == "gemini":
         return _gemini_embeddings(texts, "RETRIEVAL_DOCUMENT")
-    return _model().encode(texts, normalize_embeddings=True).tolist()
+    try:
+        return _model().encode(texts, normalize_embeddings=True).tolist()
+    except (ModuleNotFoundError, ImportError):
+        return [_hash_embedding(text) for text in texts]
 
 
 # Backward-compatible aliases for callers that do not need explicit task types.

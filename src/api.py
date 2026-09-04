@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, field_validator
 from src.agent import astream_agent
 from src.guardrails import GuardrailViolation, validate_input
 from src.graph import run_query_async
+from src.config import get_settings
 from src.llm import LLMProviderError
 from src.router import route as decide_route
 
@@ -165,6 +166,11 @@ async def query_stream(request: QueryRequest) -> StreamingResponse:
                             "router_scores": decision.router_scores,
                             "intent_classifier": decision.classifier_used,
                             "llm_provider_used": stream_event["provider"],
+                            "llm_model_used": (
+                                get_settings().GROQ_MODEL
+                                if stream_event["provider"] == "groq"
+                                else get_settings().OPENROUTER_MODEL
+                            ),
                             "tools_used": stream_event["tools_used"],
                         },
                     )
@@ -217,7 +223,7 @@ async def query_stream(request: QueryRequest) -> StreamingResponse:
                 },
             )
 
-        except (RuntimeError, ValueError):
+        except Exception:
             logger.exception("Query processing failed.")
 
             yield event(
