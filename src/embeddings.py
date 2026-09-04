@@ -45,13 +45,21 @@ def _gemini_embeddings(texts: list[str], task_type: str) -> list[list[float]]:
     return [embedding.values for embedding in response.embeddings]
 
 
+def _use_gemini_embeddings() -> bool:
+    """Use Gemini only when its backend is selected and credentials are available."""
+    settings = get_settings()
+    return settings.EMBEDDING_BACKEND == "gemini" and bool(settings.GEMINI_API_KEY)
+
+
 def embed_query(text: str) -> list[float]:
     """Embed a user request using query semantics appropriate for retrieval."""
     backend = get_settings().EMBEDDING_BACKEND
     if backend == "hashing":
         return _hash_embedding(text)
-    if backend == "gemini":
+    if backend == "gemini" and _use_gemini_embeddings():
         return _gemini_embeddings([text], "RETRIEVAL_QUERY")[0]
+    if backend == "gemini":
+        return _hash_embedding(text)
     try:
         return _model().encode(text, normalize_embeddings=True).tolist()
     except (ModuleNotFoundError, ImportError):
@@ -63,8 +71,10 @@ def embed_documents(texts: list[str]) -> list[list[float]]:
     backend = get_settings().EMBEDDING_BACKEND
     if backend == "hashing":
         return [_hash_embedding(text) for text in texts]
-    if backend == "gemini":
+    if backend == "gemini" and _use_gemini_embeddings():
         return _gemini_embeddings(texts, "RETRIEVAL_DOCUMENT")
+    if backend == "gemini":
+        return [_hash_embedding(text) for text in texts]
     try:
         return _model().encode(texts, normalize_embeddings=True).tolist()
     except (ModuleNotFoundError, ImportError):
